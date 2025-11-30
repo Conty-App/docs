@@ -1,0 +1,162 @@
+---
+title: "Mídia, Download & Métricas Enriquecidas"
+description: "Download de vídeos TikTok e análise inteligente com IA"
+---
+
+Aqui a mágica acontece. A Social API não só coleta dados — ela **entende** o conteúdo usando inteligência artificial.
+
+---
+
+# **Download de vídeos TikTok**
+
+Precisa baixar um vídeo do TikTok pra análise? Simples:
+
+```bash
+curl -X POST https://social-api.appconty.com/tiktok/download \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.tiktok.com/@usuario/video/123456789"}'
+```
+
+## **Resposta (202 Accepted)**
+
+```json
+{
+  "job_id": "uuid-do-job",
+  "status": "PENDING",
+  "message": "Download job created. Poll GET /jobs/{id} for status."
+}
+```
+
+## **Resultado (quando COMPLETED)**
+
+```json
+{
+  "status": "COMPLETED",
+  "result_payload": {
+    "post_id": "uuid-do-post",
+    "message": "video downloaded and saved successfully",
+    "ai_analysis": {
+      "transcription": "...",
+      "technical_analysis": "...",
+      "model_used": "gemini-2.5-flash"
+    }
+  }
+}
+```
+
+<Warning>
+**Rate limit:** 5 requisições por minuto para `/tiktok/download`
+</Warning>
+
+---
+
+# **Métricas enriquecidas com IA**
+
+Esse é o diferencial da Conty. A API analisa vídeos com **Google Gemini** e retorna scores de qualidade, performance e fit pro seu objetivo.
+
+## **Via JSON**
+
+```bash
+curl -X POST https://social-api.appconty.com/video/enriched-metrics \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "views": 50000,
+    "likes": 2500,
+    "goal": "awareness",
+    "video_url": "https://example.com/video.mp4"
+  }'
+```
+
+## **Via Multipart (upload direto)**
+
+```bash
+curl -X POST https://social-api.appconty.com/video/enriched-metrics \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -F "video=@meu_video.mp4" \
+  -F "views=50000" \
+  -F "likes=2500" \
+  -F "goal=engagement"
+```
+
+## **Resposta (202 Accepted)**
+
+```json
+{
+  "job_id": "uuid-do-job",
+  "status": "PENDING"
+}
+```
+
+## **Resultado (quando COMPLETED)**
+
+```json
+{
+  "status": "COMPLETED",
+  "result_payload": {
+    "video_type": "talking_head",
+    "has_face_on_screen": true,
+    "creative_quality_score": 80.1,
+    "performance_score": 67.5,
+    "conty_ugc_score": 71.8
+  }
+}
+```
+
+<Warning>
+**Rate limit:** 10 requisições por minuto para `/video/enriched-metrics`
+</Warning>
+
+---
+
+# **Tipos de vídeo detectados**
+
+A IA classifica automaticamente o tipo de conteúdo:
+
+| Tipo | Descrição |
+| ---- | --------- |
+| `talking_head` | Pessoa falando diretamente pra câmera |
+| `broll_with_text` | Cenas de apoio com texto na tela |
+| `broll_without_text` | Cenas de apoio sem texto |
+| `meme` | Conteúdo humorístico/viral |
+| `screen_recording` | Gravação de tela |
+
+---
+
+# **Objetivos (goal)**
+
+O objetivo define como os scores são calculados:
+
+| Objetivo | Fórmula do Score |
+| -------- | ---------------- |
+| `awareness` | 0.5×performance + 0.3×creative + 0.2×goal_fit |
+| `engagement` | 0.4×performance + 0.4×goal_fit + 0.2×creative |
+| `conversion` | 0.3×performance + 0.5×goal_fit + 0.2×creative |
+
+---
+
+# **Scores retornados**
+
+| Score | O que significa |
+| ----- | --------------- |
+| `creative_quality_score` | Qualidade criativa do vídeo (0-100) |
+| `performance_score` | Previsão de performance baseada em métricas similares (0-100) |
+| `conty_ugc_score` | Score geral Conty para UGC (0-100) |
+
+---
+
+# **Integração com Gemini**
+
+A análise de IA utiliza o **Google Gemini 2.5 Flash** para:
+
+* 🎯 Classificar tipo de vídeo
+* 📝 Transcrever áudio automaticamente
+* 🔍 Analisar qualidade técnica e criativa
+* 📊 Prever performance
+
+<Info>
+A chave `GEMINI_API_KEY` deve estar configurada no ambiente para usar estas funcionalidades.
+</Info>

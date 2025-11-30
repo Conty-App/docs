@@ -1,0 +1,165 @@
+---
+title: "Conceitos fundamentais"
+description: "Entenda como a Social API organiza dados, recursos e operações"
+---
+
+Antes de sair fazendo requests, vale entender como a API pensa. Não é complicado — são 5 conceitos principais e tudo faz sentido.
+
+---
+
+# **Os 5 pilares da Social API**
+
+| Conceito | O que é |
+| -------- | ------- |
+| **Account** | Perfil social conectado (Instagram/TikTok) |
+| **Post** | Publicação coletada desse perfil |
+| **Metrics** | Dados de performance consolidados |
+| **Snapshot** | Foto histórica das métricas num momento |
+| **Job** | Tarefa assíncrona (downloads, análises IA) |
+
+Esses 5 elementos são a base de tudo.
+
+---
+
+# **Account (Conta)**
+
+Uma Account é um perfil real do Instagram ou TikTok que você conectou:
+
+```json
+{
+  "id": "uuid",
+  "username": "contyapp",
+  "platform": "INSTAGRAM",
+  "followers_count": 10000,
+  "posts_count": 150,
+  "last_sync_at": "2025-11-29T20:00:00Z"
+}
+```
+
+### Operações com contas
+
+| Ação | Endpoint |
+| ---- | -------- |
+| Conectar | `POST /connect` |
+| Listar | `GET /accounts` |
+| Sincronizar | `POST /accounts/{id}/sync` |
+| Dashboard | `GET /accounts/{id}/dashboard` |
+
+---
+
+# **Post (Publicação)**
+
+Um Post é qualquer conteúdo coletado: imagem, vídeo, reel, carrossel...
+
+```json
+{
+  "id": "uuid",
+  "external_id": "ABC123",
+  "caption": "Novo post!",
+  "type": "REEL",
+  "posted_at": "2025-11-28T15:00:00Z",
+  "latest_likes": 500,
+  "latest_views": 5000
+}
+```
+
+### Tipos de post
+
+| Tipo | Descrição |
+| ---- | --------- |
+| `IMAGE` | Foto única |
+| `VIDEO` | Vídeo |
+| `CAROUSEL` | Múltiplas mídias |
+| `REEL` | Vídeo curto (Instagram) |
+
+<Info>
+Posts são atualizados automaticamente durante sincronizações. As métricas `latest_*` sempre refletem o valor mais recente.
+</Info>
+
+---
+
+# **Metrics (Métricas)**
+
+A API normaliza métricas de Instagram e TikTok pro mesmo formato:
+
+| Social Go | Instagram | TikTok |
+| --------- | --------- | ------ |
+| `likes` | Like Count | Digg Count |
+| `views` | Views/Plays | Play Count |
+| `saves` | Saves | Collect Count |
+| `shares` | Shares | Share Count |
+| `comments` | Comments | Comment Count |
+
+Você não precisa saber a diferença — a API entrega tudo padronizado.
+
+---
+
+# **Snapshot (Histórico)**
+
+Snapshots são fotos das métricas em momentos específicos. Existem dois tipos:
+
+### Account Snapshot
+Histórico da conta: seguidores, crescimento, etc.
+
+### Metric Snapshot
+Histórico de cada post: likes, views, engagement ao longo do tempo.
+
+Com snapshots você consegue:
+* 📈 Ver evolução
+* 🔍 Detectar tendências
+* ⚡ Identificar picos
+
+---
+
+# **Job (Tarefa assíncrona)**
+
+Operações pesadas (download de vídeo, análise com IA) usam o sistema de jobs:
+
+```json
+{
+  "job_id": "uuid",
+  "status": "PENDING"
+}
+```
+
+### Status possíveis
+
+| Status | Significa |
+| ------ | --------- |
+| `PENDING` | Na fila |
+| `PROCESSING` | Executando |
+| `COMPLETED` | Pronto |
+| `FAILED` | Erro |
+
+### Rotas assíncronas
+
+| Operação | Endpoint |
+| -------- | -------- |
+| Download TikTok | `POST /tiktok/download` |
+| Métricas IA | `POST /video/enriched-metrics` |
+
+---
+
+# **Fluxo típico**
+
+Entendeu os conceitos? Então o fluxo faz sentido:
+
+<Steps>
+  <Step title="Conectar conta">
+    `POST /connect` — adiciona um perfil
+  </Step>
+  <Step title="Sincronizar">
+    `POST /accounts/{id}/sync` — coleta dados
+  </Step>
+  <Step title="Ver dashboard">
+    `GET /accounts/{id}/dashboard` — dados consolidados
+  </Step>
+  <Step title="Analisar post">
+    `GET /posts/{id}/analytics` — mergulha num post específico
+  </Step>
+  <Step title="Análise com IA (opcional)">
+    `POST /video/enriched-metrics` — scores inteligentes
+  </Step>
+</Steps>
+
+É isso. Cinco conceitos, um fluxo claro. Agora você tá pronto pra usar a API.

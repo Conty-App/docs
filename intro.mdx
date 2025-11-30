@@ -1,0 +1,218 @@
+---
+title: "O que é a Social API"
+description: "Bem-vindo à Social API, o microsserviço interno que alimenta todo o ecossistema de inteligência de conteúdo da Conty."
+---
+
+## **Comece por aqui**
+
+Pegue um café, ajeite a cadeira e prepare-se para entender a infraestrutura responsável por transformar dados brutos das redes sociais em decisões claras, rápidas e inteligentes para creators, marcas e qualquer pessoa que depende de marketing diário para crescer.
+
+Esta documentação descreve tudo o que você precisa para integrar com a Social API dentro do ecossistema Conty, desde autenticação interna até fluxos de sincronização, coleta de dados, análise, jobs assíncronos, predição e comparação competitiva.
+
+---
+
+# **O que é a Social API?**
+
+A **Social API (v1.0.0)** é um microsserviço interno especializado em:
+
+* **Sincronização de contas** (Instagram e TikTok)
+* **Coleta e consolidação de métricas sociais**
+* **Análise histórica, evolução e performance de posts**
+* **Download e processamento de mídia**
+* **Integrações com modelos de IA para métricas enriquecidas**
+* **Predições de performance e insights inteligentes**
+* **Comparação competitiva entre contas**
+
+Ela foi criada para responder a uma pergunta simples:
+
+> **Como transformar *todos os melhores dados sociais* em um sistema real de tomada de decisão?**
+
+Com um design interno altamente padronizado, seguro e escalável, a Social API alimenta dashboards, features de análise, sistemas de insights, predição e inteligência que compõem o núcleo da Conty.
+
+---
+
+# **Como a Social API funciona?**
+
+A API segue quatro pilares fundamentais:
+
+---
+
+## **1. Arquitetura interna e segura**
+
+A Social API não é pública.
+
+Por enquanto, ela só pode ser consumida pelo backend principal da Conty, algo que talvez mude em algum momento, mas por enquanto... todas as requisições exigem:
+
+### **Autenticação interna**
+
+```
+X-Internal-Secret: <token interno>
+```
+
+### **Contexto multi-tenant**
+
+```
+X-Enterprise-Id: <UUID v4>
+```
+
+Isso garante:
+
+* isolamento de dados por tenant (enterprise)
+* rate limiting individualizado
+* rastreabilidade completa de cada operação
+
+---
+
+## **2. Fluxos claros e padronizados**
+
+A API foi projetada para ser previsível e consistente.
+
+### **Datas:** ISO-8601
+
+### **IDs:** UUID v4
+
+### **Erros:**
+
+```json
+{ "code": "ERR_*", "message": "..." }
+```
+
+### **Rate limits por rota**
+
+| Rota                    | Limite     |
+| ----------------------- | ---------- |
+| Geral                   | 100 req/s  |
+| /tiktok/download        | 5 req/min  |
+| /video/enriched-metrics | 10 req/min |
+
+Status 429 retorna `Retry-After`.
+
+---
+
+## **3. Suporte a operações pesadas via Jobs (assíncrono)**
+
+Para tarefas intensivas como download de mídia e análises de IA, usamos o padrão:
+
+1. Cliente solicita a operação (ex: POST `/tiktok/download`)
+2. API retorna `202 Accepted` + `job_id`
+3. Cliente faz polling em `GET /jobs/{id}`
+4. Job retorna `COMPLETED`, `FAILED` ou continua em `PENDING`
+
+Exemplo de retorno:
+
+```json
+{
+  "job_id": "uuid",
+  "status": "PENDING",
+  "message": "Job created. Poll GET /jobs/{id} for status."
+}
+```
+
+---
+
+## **4. Fluxo de uso simples, direto e lógico**
+
+A Social API oferece uma sequência clara para qualquer tratamento de dados:
+
+<Steps>
+  <Step title="Conectar uma conta">
+    `POST /connect`
+  </Step>
+  <Step title="Sincronizar dados">
+    `POST /accounts/{id}/sync`
+  </Step>
+  <Step title="Acessar dados consolidados (dashboard)">
+    `GET /accounts/{id}/dashboard`
+  </Step>
+  <Step title="Analisar posts e histórico">
+    `GET /posts/{id}/analytics`
+  </Step>
+  <Step title="Download/análise de mídia (jobs)">
+    `POST /tiktok/download`
+  </Step>
+  <Step title="Métricas enriquecidas com IA">
+    `POST /video/enriched-metrics`
+  </Step>
+  <Step title="Insights inteligentes">
+    `GET /v1/accounts/{id}/insights`
+  </Step>
+  <Step title="Comparação competitiva">
+    `POST /v1/competitive/compare`
+  </Step>
+  <Step title="Predição de performance">
+    `POST /v1/predictions/video`
+  </Step>
+</Steps>
+
+Tudo segue o mesmo modelo: previsível, padronizado e fácil de consumir internamente.
+
+---
+
+# **API construída para desenvolvedores (de verdade)**
+
+A Social API foi pensada para velocidade:
+
+### ✔ Baseada em intenção
+
+Cada rota faz exatamente o que diz.
+
+```bash
+POST /connect                     # Conecta nova conta
+POST /accounts/{id}/sync          # Inicia sincronização
+GET  /accounts/{id}/dashboard     # Dados consolidados
+POST /tiktok/download             # Job de download + análise
+```
+
+### ✔ Padronizada
+
+Todos os retornos possuem o mesmo formato consistente.
+
+```json
+{
+  "data": { ... },
+  "error": null
+}
+```
+
+### ✔ Observável e resiliente
+
+* Logs estruturados
+* Estados claros de job
+* Rate limiting por tenant
+* Autenticação interna obrigatória
+
+---
+
+# **Por que isso existe?**
+
+Porque creators, empresas e marcas precisam **tomar decisões rápidas** e baseadas em dados reais, não em achismos.
+
+A Social API é a infraestrutura que torna isso possível:
+
+* automatiza coleta
+* consolida informação
+* gera inteligência
+* cria predição
+* permite comparar contas
+* transforma dados brutos em ações diretas
+
+Ela é o "motor invisível" que alimenta tudo o que a Conty entrega.
+
+---
+
+# **Servidor de produção**
+
+```
+https://social-api.appconty.com
+```
+
+Swagger UI: [https://social-api.appconty.com/docs/](https://social-api.appconty.com/docs/)
+
+---
+
+# **Dúvidas ou suporte técnico?**
+
+Como este microsserviço é interno, dúvidas são tratadas diretamente pelo time Conty.
+
+📩 **[contato@conty.app](mailto:contato@conty.app)**
+

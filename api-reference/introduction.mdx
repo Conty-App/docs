@@ -1,33 +1,61 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: 'Introdução'
+description: 'Documentação da API Social Go v2.0.0'
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Bem-vindo
 
-## Welcome
-
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+A **Social Go API** é um microsserviço interno projetado para ser consumido exclusivamente pelo backend principal da Conty. Ela fornece funcionalidades para sincronização e análise de métricas de redes sociais (Instagram e TikTok).
 
 <Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
+  title="Social Go OpenAPI Spec"
+  icon="code"
+  href="/api-reference/openapi.json"
 >
-  View the OpenAPI specification file
+  Baixar a especificação OpenAPI v2.0.0
 </Card>
 
-## Authentication
+## Autenticação e Segurança
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Todas as requisições devem ser autenticadas. Existem dois headers principais necessários para interagir com a API:
 
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+1. **Autenticação Interna**: Todas as chamadas devem incluir o header `X-Internal-Secret` para validar a origem da requisição.
+2. **Contexto de Tenant**: Chamadas devem incluir `X-Enterprise-Id` para identificar o cliente e aplicar rate limiting.
+
+```bash
+X-Internal-Secret: SEU_SECRET_TOKEN
+X-Enterprise-Id: 123e4567-e89b-12d3-a456-426614174000
 ```
+
+## Rate Limiting
+
+A API impõe limites de requisição para garantir estabilidade. Quando excedido, retorna status `429` com header `Retry-After`.
+
+| Rota | Limite |
+| :--- | :--- |
+| Geral | 100 req/s |
+| `/tiktok/download` | 5 req/min |
+| `/video/enriched-metrics` | 10 req/min |
+
+## Fluxo Assíncrono (Jobs)
+
+Para operações pesadas (como download de mídia ou análise de IA), a API utiliza um padrão de Jobs assíncronos para evitar timeouts.
+
+1. O cliente solicita a operação (ex: `POST /tiktok/download`).
+2. A API retorna `202 Accepted` imediatamente com um `job_id`.
+3. O cliente faz polling em `GET /jobs/{id}` até que o status seja `COMPLETED` ou `FAILED`.
+
+## Fluxo de Uso
+
+O ciclo de vida típico de uso da API envolve:
+
+1. **Conexão**: Conecte uma conta de rede social usando `POST /connect`.
+2. **Sincronização**: Acompanhe ou force a atualização de dados com `POST /accounts/{id}/sync`.
+3. **Dashboard**: Consulte dados consolidados e métricas no `GET /accounts/{id}/dashboard`.
+4. **Mídia**: Baixe e analise vídeos específicos via fluxo de Jobs.
+
+## Padrões
+
+- **Datas**: Formato ISO 8601 (`YYYY-MM-DDTHH:mm:ssZ`).
+- **IDs**: UUID v4.
+- **Erros**: Retornados em JSON no formato `{"code":"ERR_*","message":"..."}`.

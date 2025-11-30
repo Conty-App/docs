@@ -1,94 +1,169 @@
 ---
-title: 'Development'
-description: 'Preview changes locally to update your docs'
+title: "Desenvolvimento local"
+description: "Configure a Social API localmente com Go + Make para desenvolver e iterar"
 ---
 
-<Info>
-  **Prerequisites**:
-  - Node.js version 19 or higher
-  - A docs repository with a `docs.json` file
-</Info>
+Este é o jeito mais rápido para desenvolver e iterar na Social API.
 
-Follow these steps to install and run Mintlify on your operating system.
+---
 
-<Steps>
-<Step title="Install the Mintlify CLI">
+## **1. Instalar pré-requisitos**
 
-```bash
-npm i -g mint
-```
-</Step>
+### **Instalar Go 1.24+**
 
-<Step title="Preview locally">
-
-Navigate to your docs directory where your `docs.json` file is located, and run the following command:
+**macOS (Homebrew):**
 
 ```bash
-mint dev
+brew install go
 ```
 
-A local preview of your documentation will be available at `http://localhost:3000`.
-
-</Step>
-</Steps>
-
-## Custom ports
-
-By default, Mintlify uses port 3000. You can customize the port Mintlify runs on by using the `--port` flag. For example, to run Mintlify on port 3333, use this command:
+**Linux (apt):**
 
 ```bash
-mint dev --port 3333
+sudo apt update
+sudo apt install golang-go
 ```
 
-If you attempt to run Mintlify on a port that's already in use, it will use the next available port:
-
-```md
-Port 3000 is already in use. Trying 3001 instead.
-```
-
-## Mintlify versions
-
-Please note that each CLI release is associated with a specific version of Mintlify. If your local preview does not align with the production version, please update the CLI:
+**Verificar instalação:**
 
 ```bash
-npm mint update
+go version
 ```
 
-## Validating links
+---
 
-The CLI can assist with validating links in your documentation. To identify any broken links, use the following command:
+### **Instalar Make**
+
+**macOS (Homebrew):**
 
 ```bash
-mint broken-links
+brew install make
 ```
 
-## Deployment
+**Linux:**
 
-If the deployment is successful, you should see the following:
+```bash
+sudo apt install make
+```
 
-<Frame>
-  <img src="/images/checks-passed.png" alt="Screenshot of a deployment confirmation message that says All checks have passed." style={{ borderRadius: '0.5rem' }} />
-</Frame>
+---
 
-## Code formatting
+### **(Opcional) Instalar jq para parsing de JSON**
 
-We suggest using extensions on your IDE to recognize and format MDX. If you're a VSCode user, consider the [MDX VSCode extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) for syntax highlighting, and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) for code formatting.
+Útil para seguir os exemplos de Jobs:
 
-## Troubleshooting
+**macOS:**
 
-<AccordionGroup>
-  <Accordion title='Error: Could not load the "sharp" module using the darwin-arm64 runtime'>
+```bash
+brew install jq
+```
 
-    This may be due to an outdated version of node. Try the following:
-    1. Remove the currently-installed version of the CLI: `npm remove -g mint`
-    2. Upgrade to Node v19 or higher.
-    3. Reinstall the CLI: `npm i -g mint`
-  </Accordion>
+**Linux:**
 
-  <Accordion title="Issue: Encountering an unknown error">
-  
-    Solution: Go to the root of your device and delete the `~/.mintlify` folder. Then run `mint dev` again.
-  </Accordion>
-</AccordionGroup>
+```bash
+sudo apt install jq
+```
 
-Curious about what changed in the latest CLI version? Check out the [CLI changelog](https://www.npmjs.com/package/mintlify?activeTab=versions).
+---
+
+## **2. Clonar o repositório e configurar**
+
+```bash
+git clone <repo-url>
+cd social-go
+cp .env.example .env
+```
+
+Edite `.env` com suas credenciais reais:
+
+```env
+DATABASE_URL=postgres://postgres.[ref]:[pass]@db.[ref].supabase.co:5432/postgres?sslmode=require
+APIFY_TOKEN=apify_api_xxxxx
+GEMINI_API_KEY=AIzaSyxxxxx
+INTERNAL_SECRET=sua-chave-secreta
+PORT=8080
+ENV=development
+```
+
+<Warning>
+**IMPORTANTE:**
+* Use **porta 5432**, não 6543 (pooler do Supabase quebra o pgx).
+* Senhas com `@`, `&` etc devem ser **URL encoded**.
+</Warning>
+
+---
+
+## **3. Rodar a API**
+
+```bash
+make run
+```
+
+A API estará disponível em:
+
+* Swagger UI → `http://localhost:8080/docs/`
+* Healthcheck → `http://localhost:8080/health`
+
+---
+
+## **4. Testar se está funcionando**
+
+```bash
+curl http://localhost:8080/health
+```
+
+Esperado:
+
+```
+OK
+```
+
+Se isso funcionou… parabéns 🎉 — a Social API está no ar.
+
+---
+
+## **5. Sua primeira chamada real: conectar uma conta**
+
+```bash
+export INTERNAL_SECRET="sua-chave-secreta"
+export ENTERPRISE_ID="123e4567-e89b-12d3-a456-426614174000" # UUID v4
+
+curl -X POST http://localhost:8080/connect \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "contyapp",
+    "platform": "INSTAGRAM",
+    "options": {
+      "fetch_profile": true,
+      "fetch_posts": true,
+      "fetch_reels": true,
+      "posts_limit": 20,
+      "reels_limit": 20,
+      "newer_than": "7 days"
+    }
+  }'
+```
+
+---
+
+## **6. Listar contas**
+
+```bash
+curl http://localhost:8080/accounts \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+---
+
+## **7. Dashboard consolidado**
+
+```bash
+ACCOUNT_ID="123e4567-e89b-12d3-a456-426614174000"
+
+curl "http://localhost:8080/accounts/$ACCOUNT_ID/dashboard?limit=5" \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```

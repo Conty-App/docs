@@ -1,0 +1,154 @@
+---
+title: "Arquitetura Social Go"
+description: "Visão geral da arquitetura interna do microsserviço Social API"
+---
+
+Se você quer entender como tudo funciona por baixo dos panos, chegou ao lugar certo. Este documento explica a arquitetura interna da Social API.
+
+---
+
+# **Visão geral**
+
+O projeto segue **Clean Architecture** com middlewares e sistema de jobs assíncronos:
+
+```
+[ Cloud Run ] -> [ Middleware ] -> [ Handlers ] -> [ Services ] -> [ Domain ]
+                                                                       |
+                                                   [ Repositories ] [ JobWorkers ]
+                                                          |              |
+                                            [ Supabase (VIEWs) ]    [ Providers ]
+                                                                         |
+                                                      [ Apify ]  [ Gemini ]
+```
+
+---
+
+# **Estrutura do projeto**
+
+```
+social-go/
+├── cmd/api/              # Ponto de entrada (main)
+├── internal/
+│   ├── domain/           # Entidades e Interfaces (Core)
+│   ├── service/          # Regras de negócio e Jobs
+│   ├── handler/          # Controladores HTTP
+│   ├── middleware/       # Auth e RateLimit
+│   └── infrastructure/   # Database e Providers
+└── docs/                 # Documentação e Swagger
+```
+
+---
+
+# **Entidades principais**
+
+| Entidade | Descrição |
+| -------- | --------- |
+| `Account` | Perfil social (Instagram, TikTok) |
+| `Post` | Publicação (Imagem, Vídeo, Carousel) |
+| `MetricSnapshot` | Histórico de métricas de post |
+| `AccountSnapshot` | Histórico de métricas de conta |
+| `Job` | Tarefa assíncrona |
+
+---
+
+# **Stack tecnológica**
+
+| Componente | Tecnologia |
+| ---------- | ---------- |
+| Linguagem | Go 1.24+ |
+| Banco de dados | PostgreSQL (via Supabase) |
+| Storage | Supabase Storage |
+| Coleta de dados | Apify |
+| IA | Google Gemini 2.5 Flash |
+| Containerização | Docker |
+| Hospedagem | Google Cloud Run |
+
+---
+
+# **Fluxo de uma requisição**
+
+<Steps>
+  <Step title="Request chega">
+    Cloud Run recebe a requisição HTTP
+  </Step>
+  <Step title="Middleware processa">
+    Valida `X-Internal-Secret`, extrai `X-Enterprise-Id` e aplica rate limit
+  </Step>
+  <Step title="Handler roteia">
+    Direciona para o handler correto baseado na rota
+  </Step>
+  <Step title="Service executa">
+    Lógica de negócio é executada
+  </Step>
+  <Step title="Repository persiste">
+    Dados são lidos/escritos no Supabase via VIEWs
+  </Step>
+</Steps>
+
+---
+
+# **Middlewares**
+
+<AccordionGroup>
+  <Accordion title="Auth Middleware">
+    Valida `X-Internal-Secret` e extrai `X-Enterprise-Id` e `X-User-Id` do request
+  </Accordion>
+  <Accordion title="Rate Limit Middleware">
+    Implementa rate limiting por tenant usando token bucket
+  </Accordion>
+  <Accordion title="Logger Middleware">
+    Registra todas as requisições com contexto estruturado
+  </Accordion>
+  <Accordion title="Recovery Middleware">
+    Captura panics e retorna erro 500 graciosamente
+  </Accordion>
+</AccordionGroup>
+
+---
+
+# **Providers externos**
+
+## **Apify**
+
+Coleta de dados das redes sociais:
+
+| Plataforma | Provider |
+| ---------- | -------- |
+| Instagram | `apify/instagram-scraper` |
+| TikTok | `clockworks/tiktok-scraper` |
+
+## **Google Gemini**
+
+Análise de IA para vídeos:
+
+* Transcrição de áudio
+* Análise técnica e criativa
+* Classificação de tipo de vídeo
+* Scores de qualidade
+
+---
+
+# **Variáveis de ambiente**
+
+```env
+# Obrigatórias
+DATABASE_URL=postgres://...
+INTERNAL_SECRET=...
+PORT=8080
+
+# APIs externas
+APIFY_TOKEN=...
+GEMINI_API_KEY=...
+
+# Opcional
+ENV=development|production
+LOG_LEVEL=debug|info|warn|error
+```
+
+---
+
+# **Servidor de produção**
+
+```
+https://social-api.appconty.com
+```

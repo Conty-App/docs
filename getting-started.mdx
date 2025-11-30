@@ -1,0 +1,124 @@
+---
+title: "Início rápido"
+description: "Teste a Social API em segundos usando o ambiente de produção"
+---
+
+Bora testar? O jeito mais rápido é usar o ambiente de produção direto — sem instalar nada.
+
+---
+
+# **Base URL**
+
+```
+https://social-api.appconty.com
+```
+
+Documentação Swagger: [https://social-api.appconty.com/docs/](https://social-api.appconty.com/docs/)
+
+---
+
+# **1. Healthcheck**
+
+Primeiro, vamos ver se tá tudo no ar:
+
+```bash
+curl https://social-api.appconty.com/health
+```
+
+**Resposta esperada:**
+
+```
+OK
+```
+
+Se retornou `OK`, a API tá funcionando. Se retornou `DB_UNHEALTHY` (503), tem algo errado com o banco.
+
+---
+
+# **2. Configurar autenticação**
+
+Agora vamos configurar os headers necessários:
+
+```bash
+export INTERNAL_SECRET="sua-chave-secreta"
+export ENTERPRISE_ID="123e4567-e89b-12d3-a456-426614174000"
+```
+
+<Info>
+O `ENTERPRISE_ID` precisa ser um UUID v4 válido. Você pode gerar um em [uuidgenerator.net](https://www.uuidgenerator.net/).
+</Info>
+
+---
+
+# **3. Conectar uma conta**
+
+Vamos conectar um perfil do Instagram:
+
+```bash
+curl -X POST https://social-api.appconty.com/connect \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "neymarjr", "platform": "INSTAGRAM"}'
+```
+
+Pra TikTok, só trocar o `platform`:
+
+```bash
+-d '{"username": "khaby.lame", "platform": "TIKTOK"}'
+```
+
+---
+
+# **4. Listar contas**
+
+Ver todas as contas que você conectou:
+
+```bash
+curl https://social-api.appconty.com/accounts \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+---
+
+# **5. Ver o dashboard**
+
+Com o ID da conta, você pode ver o dashboard consolidado:
+
+```bash
+curl "https://social-api.appconty.com/accounts/{id}/dashboard?limit=10" \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+🎉 **Pronto!** Você já tá usando a Social API.
+
+<Warning>
+Lembre-se: a Social API é **interna** e não deve ser chamada de apps públicos.
+</Warning>
+
+---
+
+# **Quer rodar localmente?**
+
+Se você precisa desenvolver ou contribuir com a API:
+
+<CardGroup cols={2}>
+  <Card title="Desenvolvimento local" icon="code" href="/development">
+    Configure com Go + Make pra desenvolver e iterar
+  </Card>
+  <Card title="Via Docker" icon="docker" href="/docker">
+    Ambiente isolado sem instalar Go
+  </Card>
+</CardGroup>
+
+---
+
+# **Próximos passos**
+
+Agora que você testou, recomendo entender os conceitos:
+
+<Card title="Conceitos fundamentais" icon="book" href="/concepts">
+  Account, Post, Metrics, Snapshot, Job — como tudo se conecta
+</Card>

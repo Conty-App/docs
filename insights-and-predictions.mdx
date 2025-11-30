@@ -1,0 +1,198 @@
+---
+title: "Insights, Comparação & Predição"
+description: "Inteligência avançada para tomada de decisão"
+---
+
+A Social API vai além de coletar dados — ela **gera inteligência**. Aqui você encontra os recursos avançados de análise.
+
+<Info>
+Estes recursos utilizam os dados coletados e as métricas enriquecidas como base para gerar insights acionáveis.
+</Info>
+
+---
+
+# **Insights automáticos**
+
+Com base nos dados coletados, a API pode gerar insights sobre uma conta:
+
+```bash
+curl https://social-api.appconty.com/v1/accounts/{id}/insights \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+## **Tipos de insights**
+
+| Tipo | O que analisa |
+| ---- | ------------- |
+| `growth` | Crescimento de seguidores |
+| `engagement` | Padrões de engajamento |
+| `timing` | Melhores horários pra postar |
+| `content` | Tipos de conteúdo que performam melhor |
+
+## **Exemplo de resposta**
+
+```json
+{
+  "data": {
+    "account_id": "uuid",
+    "generated_at": "2025-11-29T20:00:00Z",
+    "insights": [
+      {
+        "type": "growth",
+        "title": "Crescimento acelerado",
+        "description": "Sua conta cresceu 15% nos últimos 7 dias",
+        "importance": "high"
+      },
+      {
+        "type": "engagement",
+        "title": "Reels performando melhor",
+        "description": "Seus Reels têm 3x mais engajamento que posts estáticos",
+        "recommendation": "Priorize conteúdo em vídeo"
+      }
+    ]
+  }
+}
+```
+
+---
+
+# **Comparação competitiva**
+
+Compare múltiplas contas pra entender seu posicionamento:
+
+```bash
+curl -X POST https://social-api.appconty.com/v1/competitive/compare \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_ids": ["uuid1", "uuid2", "uuid3"],
+    "metrics": ["followers", "engagement_rate", "posts_per_week"]
+  }'
+```
+
+## **Exemplo de resposta**
+
+```json
+{
+  "data": {
+    "comparison": [
+      {
+        "account_id": "uuid1",
+        "username": "conta1",
+        "metrics": {
+          "followers": 10000,
+          "engagement_rate": 4.5,
+          "posts_per_week": 5
+        },
+        "rank": 2
+      },
+      {
+        "account_id": "uuid2",
+        "username": "conta2",
+        "metrics": {
+          "followers": 15000,
+          "engagement_rate": 3.2,
+          "posts_per_week": 7
+        },
+        "rank": 1
+      }
+    ],
+    "analysis": {
+      "leader": "uuid2",
+      "insights": [
+        "conta2 lidera em seguidores, mas conta1 tem melhor engajamento"
+      ]
+    }
+  }
+}
+```
+
+---
+
+# **Predição de performance**
+
+Preveja como um vídeo vai performar antes de publicar:
+
+```bash
+curl -X POST https://social-api.appconty.com/v1/predictions/video \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_id": "uuid",
+    "video_url": "https://storage.conty.app/videos/draft.mp4",
+    "caption": "Novo vídeo incrível! #viral",
+    "scheduled_time": "2025-11-30T19:00:00Z"
+  }'
+```
+
+## **Exemplo de resposta**
+
+```json
+{
+  "data": {
+    "predictions": {
+      "views": {
+        "low": 5000,
+        "expected": 15000,
+        "high": 50000
+      },
+      "likes": {
+        "low": 250,
+        "expected": 750,
+        "high": 2500
+      },
+      "engagement_rate": {
+        "expected": 5.0,
+        "confidence": 0.78
+      }
+    },
+    "factors": {
+      "positive": [
+        "Horário ideal de publicação",
+        "Hashtags trending"
+      ],
+      "negative": [
+        "Alta competição no horário"
+      ]
+    },
+    "recommendations": [
+      "Adicionar CTA no início do vídeo",
+      "Responder comentários nos primeiros 30 min"
+    ]
+  }
+}
+```
+
+---
+
+# **Como usar esses dados**
+
+<CardGroup cols={2}>
+  <Card title="Planejamento" icon="calendar">
+    Use predições pra decidir o que e quando publicar
+  </Card>
+  <Card title="Benchmarking" icon="chart-bar">
+    Compare sua performance com concorrentes
+  </Card>
+  <Card title="Otimização" icon="arrows-rotate">
+    Use insights pra ajustar sua estratégia
+  </Card>
+  <Card title="Relatórios" icon="file-lines">
+    Gere relatórios baseados em dados reais
+  </Card>
+</CardGroup>
+
+---
+
+# **Base dos insights**
+
+Todos esses recursos são construídos em cima de:
+
+* 📊 **Snapshots históricos** — evolução de métricas ao longo do tempo
+* 🤖 **Métricas enriquecidas** — análise de IA via `/video/enriched-metrics`
+* 📈 **Dados consolidados** — dashboards e analytics
+
+Quanto mais dados você coletar, melhores serão os insights.

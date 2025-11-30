@@ -1,0 +1,139 @@
+---
+title: "Erros & Rate Limiting"
+description: "Tratamento de erros, códigos de resposta e limites de requisição"
+---
+
+Erros acontecem. O importante é saber o que fazer quando aparecem. A Social API segue padrões consistentes — você sempre sabe o que esperar.
+
+---
+
+# **Formato de erros**
+
+Todos os erros seguem o mesmo formato previsível:
+
+```json
+{
+  "code": "ERR_*",
+  "message": "Descrição do erro"
+}
+```
+
+Nada de surpresas. O `code` é estável (pode usar pra comparação), o `message` é legível (pra debug).
+
+---
+
+# **Códigos de erro**
+
+<AccordionGroup>
+  <Accordion title="ERR_INVALID_REQUEST (400)">
+    ```json
+    { "code": "ERR_INVALID_REQUEST", "message": "invalid X-Enterprise-Id (must be uuid)" }
+    ```
+    
+    **O que aconteceu:** Payload ou headers com formato inválido.
+    
+    **O que fazer:** Verifique se todos os campos estão no formato correto (UUIDs, datas ISO-8601, etc).
+  </Accordion>
+  
+  <Accordion title="ERR_UNAUTHORIZED (401)">
+    ```json
+    { "code": "ERR_UNAUTHORIZED", "message": "invalid or missing X-Internal-Secret" }
+    ```
+    
+    **O que aconteceu:** Header `X-Internal-Secret` ausente ou inválido.
+    
+    **O que fazer:** Verifique se o header está sendo enviado com a chave correta.
+  </Accordion>
+  
+  <Accordion title="ERR_NOT_FOUND (404)">
+    ```json
+    { "code": "ERR_NOT_FOUND", "message": "account not found" }
+    ```
+    
+    **O que aconteceu:** Recurso não existe ou não pertence ao tenant atual.
+    
+    **O que fazer:** Verifique o ID e o `X-Enterprise-Id`.
+  </Accordion>
+  
+  <Accordion title="ERR_RATE_LIMITED (429)">
+    ```json
+    { "code": "ERR_RATE_LIMITED", "message": "too many requests" }
+    ```
+    
+    **O que aconteceu:** Você excedeu o limite de requisições.
+    
+    **O que fazer:** Aguarde o tempo indicado no header `Retry-After`.
+  </Accordion>
+  
+  <Accordion title="ERR_INTERNAL (500)">
+    ```json
+    { "code": "ERR_INTERNAL", "message": "internal server error" }
+    ```
+    
+    **O que aconteceu:** Algo deu errado do nosso lado.
+    
+    **O que fazer:** Tente novamente. Se persistir, contate o suporte.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+# **Rate Limiting**
+
+A API implementa rate limiting por tenant pra garantir que todo mundo tenha uma boa experiência.
+
+## **Limites por rota**
+
+| Rota | Limite |
+| ---- | ------ |
+| Geral | 100 req/s |
+| `/tiktok/download` | 5 req/min |
+| `/video/enriched-metrics` | 10 req/min |
+
+---
+
+## **Quando o limite é excedido**
+
+Você recebe:
+
+* **Status:** `429 Too Many Requests`
+* **Header:** `Retry-After: <segundos>`
+
+O header `Retry-After` diz exatamente quantos segundos esperar antes de tentar de novo.
+
+---
+
+## **Boas práticas**
+
+<CardGroup cols={2}>
+  <Card title="Implemente backoff exponencial" icon="clock">
+    Ao receber 429, aguarde e dobre o tempo a cada retry
+  </Card>
+  <Card title="Use cache quando possível" icon="database">
+    Dashboards e analytics podem ser cacheados por alguns minutos
+  </Card>
+  <Card title="Agrupe requisições" icon="layer-group">
+    Prefira uma chamada com múltiplos IDs a várias chamadas individuais
+  </Card>
+  <Card title="Monitore seus limites" icon="chart-line">
+    Acompanhe o consumo pra evitar throttling
+  </Card>
+</CardGroup>
+
+---
+
+# **HTTP Status Codes**
+
+Resumo rápido dos status que você pode encontrar:
+
+| Status | Significado |
+| ------ | ----------- |
+| `200` | Sucesso |
+| `201` | Criado com sucesso |
+| `202` | Aceito (job criado) |
+| `400` | Requisição inválida |
+| `401` | Não autorizado |
+| `404` | Não encontrado |
+| `429` | Rate limit excedido |
+| `500` | Erro interno |
+| `503` | Serviço indisponível (DB unhealthy) |

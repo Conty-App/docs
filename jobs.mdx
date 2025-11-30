@@ -1,0 +1,147 @@
+---
+title: "Jobs"
+description: "Sistema de tarefas assíncronas para operações pesadas"
+---
+
+Algumas coisas demoram. Baixar um vídeo, analisar com IA, processar dados pesados... Pra isso existe o sistema de **Jobs**.
+
+---
+
+# **Como funciona**
+
+O conceito é simples:
+
+<Steps>
+  <Step title="Você faz o request">
+    Ex: `POST /tiktok/download`
+  </Step>
+  <Step title="API cria o job">
+    Retorna `202 Accepted` com um `job_id`
+  </Step>
+  <Step title="Você faz polling">
+    Consulta `GET /jobs/{id}` até terminar
+  </Step>
+  <Step title="Pega o resultado">
+    Job retorna `COMPLETED` com os dados ou `FAILED` com o erro
+  </Step>
+</Steps>
+
+---
+
+# **Criar um job**
+
+Exemplo com download de TikTok:
+
+```bash
+curl -X POST https://social-api.appconty.com/tiktok/download \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.tiktok.com/@usuario/video/123"}'
+```
+
+## **Resposta (202 Accepted)**
+
+```json
+{
+  "job_id": "uuid-do-job",
+  "status": "PENDING",
+  "message": "Download job created. Poll GET /jobs/{id} for status."
+}
+```
+
+---
+
+# **Consultar status**
+
+```bash
+curl https://social-api.appconty.com/jobs/{job_id} \
+  -H "X-Internal-Secret: $INTERNAL_SECRET"
+```
+
+## **Em progresso**
+
+```json
+{
+  "job_id": "uuid",
+  "status": "PROCESSING",
+  "progress": 45,
+  "message": "Downloading video..."
+}
+```
+
+## **Completo**
+
+```json
+{
+  "job_id": "uuid",
+  "status": "COMPLETED",
+  "result_payload": {
+    "post_id": "uuid-do-post",
+    "message": "video downloaded and saved successfully"
+  }
+}
+```
+
+## **Erro**
+
+```json
+{
+  "job_id": "uuid",
+  "status": "FAILED",
+  "error": {
+    "code": "ERR_DOWNLOAD_FAILED",
+    "message": "Video not accessible"
+  }
+}
+```
+
+---
+
+# **Status possíveis**
+
+| Status | O que significa |
+| ------ | --------------- |
+| `PENDING` | Na fila, aguardando processamento |
+| `PROCESSING` | Executando agora |
+| `COMPLETED` | Terminou com sucesso |
+| `FAILED` | Deu erro |
+
+---
+
+# **Operações assíncronas**
+
+| Operação | Endpoint | Rate Limit |
+| -------- | -------- | ---------- |
+| Download TikTok | `POST /tiktok/download` | 5 req/min |
+| Métricas IA | `POST /video/enriched-metrics` | 10 req/min |
+
+---
+
+# **Exemplo de polling**
+
+```javascript
+async function waitForJob(jobId) {
+  while (true) {
+    const response = await fetch(`/jobs/${jobId}`, {
+      headers: { 'X-Internal-Secret': SECRET }
+    });
+    const job = await response.json();
+    
+    if (job.status === 'COMPLETED') {
+      return job.result_payload;
+    }
+    
+    if (job.status === 'FAILED') {
+      throw new Error(job.error.message);
+    }
+    
+    // Aguarda 3 segundos antes de verificar de novo
+    await new Promise(r => setTimeout(r, 3000));
+  }
+}
+```
+
+<Warning>
+**Dica:** Use intervalos de 2-5 segundos entre consultas pra não sobrecarregar a API.
+</Warning>

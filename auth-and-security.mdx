@@ -1,0 +1,147 @@
+---
+title: "Autenticação & Segurança"
+description: "Como funciona a autenticação e proteção de dados na Social API"
+---
+
+A Social API é **interna**. Isso significa que toda requisição precisa ser autenticada — exceto `/health` e `/docs/`.
+
+A boa notícia? É simples. Dois headers resolvem tudo.
+
+---
+
+# **Headers de autenticação**
+
+| Header | Tipo | O que faz |
+| ------ | ---- | --------- |
+| `X-Internal-Secret` | **Obrigatório** | Chave de autenticação. Sem ela, nada funciona. |
+| `X-Enterprise-Id` | **Recomendado** | UUID do tenant. Isola os dados por empresa. |
+| `X-User-Id` | Opcional | UUID do usuário. Útil pra auditoria. |
+
+---
+
+# **Exemplo prático**
+
+```bash
+curl https://social-api.appconty.com/accounts \
+  -H "X-Internal-Secret: sua-chave-secreta" \
+  -H "X-Enterprise-Id: uuid-da-enterprise"
+```
+
+Simples assim. Dois headers e você tá autenticado.
+
+---
+
+# **X-Internal-Secret**
+
+É a chave mestra. Sem ela, você recebe:
+
+```json
+{
+  "code": "ERR_UNAUTHORIZED",
+  "message": "invalid or missing X-Internal-Secret"
+}
+```
+
+### Como gerar uma chave segura
+
+```bash
+openssl rand -base64 32
+```
+
+### No seu .env
+
+```env
+INTERNAL_SECRET=sua-chave-ultra-secreta-aqui
+```
+
+<Tip>
+Sempre gere uma chave nova ao trocar de ambiente. Nunca reutilize entre dev/staging/prod.
+</Tip>
+
+---
+
+# **X-Enterprise-Id (Multi-tenant)**
+
+A API foi construída pra servir múltiplas empresas ao mesmo tempo. O `X-Enterprise-Id` garante que:
+
+* ✅ Dados ficam isolados por tenant
+* ✅ Uma empresa nunca vê dados de outra
+* ✅ Rate limits são individuais
+
+Sem esse header, as requisições funcionam, mas **não retornam dados de nenhuma conta** — porque não sabe de qual tenant buscar.
+
+---
+
+# **X-User-Id (Opcional)**
+
+Se você quer rastrear quem fez o quê:
+
+```bash
+-H "X-User-Id: uuid-do-usuario"
+```
+
+Útil pra:
+
+* Saber quem pediu uma sincronização
+* Auditoria de operações
+* Logs mais detalhados
+
+---
+
+# **Endpoints públicos**
+
+Dois endpoints **não precisam** de autenticação:
+
+| Rota | Pra quê serve |
+| ---- | ------------- |
+| `GET /health` | Healthcheck (retorna `OK` ou `DB_UNHEALTHY`) |
+| `GET /docs/` | Swagger UI |
+
+```bash
+curl https://social-api.appconty.com/health
+# Resposta: OK (200) ou DB_UNHEALTHY (503)
+```
+
+---
+
+# **Erros de autenticação**
+
+<AccordionGroup>
+  <Accordion title="❌ Secret faltando ou inválido">
+    ```json
+    { "code": "ERR_UNAUTHORIZED", "message": "invalid or missing X-Internal-Secret" }
+    ```
+    
+    **Solução:** Adicione o header com a chave correta.
+  </Accordion>
+  
+  <Accordion title="❌ Enterprise ID inválido">
+    ```json
+    { "code": "ERR_INVALID_REQUEST", "message": "invalid X-Enterprise-Id (must be uuid)" }
+    ```
+    
+    **Solução:** Use um UUID v4 válido.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+# **Segurança em produção**
+
+No Cloud Run, a API usa:
+
+* 🔐 **GCP Secret Manager** — secrets nunca ficam em código
+* 🔒 **HTTPS obrigatório** — tráfego sempre criptografado
+* 🛡️ **IAM** — acesso restrito aos secrets
+
+---
+
+# **Resumo**
+
+```
+X-Internal-Secret → autenticação (obrigatório)
+X-Enterprise-Id   → isolamento de dados (recomendado)
+X-User-Id         → rastreabilidade (opcional)
+```
+
+Três headers. Segurança completa. Sem complicação.

@@ -1,0 +1,151 @@
+---
+title: "Banco de Dados & Supabase"
+description: "Estrutura do banco de dados e integração com Supabase"
+---
+
+A Social API utiliza **PostgreSQL** hospedado no **Supabase**. Mas tem um detalhe importante: usamos **VIEWs** pra abstrair a estrutura real das tabelas.
+
+---
+
+# **Conexão**
+
+A conexão usa o driver **pgx** diretamente (sem ORM):
+
+```env
+DATABASE_URL=postgres://postgres.[ref]:[pass]@db.[ref].supabase.co:5432/postgres?sslmode=require
+```
+
+<Warning>
+**Importante:** Use a porta **5432** (conexão direta), não 6543 (pooler). O pooler do Supabase pode causar problemas com o pgx.
+</Warning>
+
+---
+
+# **VIEWs e tabelas reais**
+
+O código Go usa **VIEWs** que mapeiam para as tabelas reais do Supabase:
+
+| VIEW (Go) | Tabela real (Supabase) |
+| --------- | ---------------------- |
+| `accounts` | `social_media_accounts` |
+| `posts` | `social_media_metrics` |
+
+Isso permite que o schema do Go seja mais limpo enquanto mantém compatibilidade com o ecossistema Supabase.
+
+---
+
+# **Tabelas principais**
+
+| Tabela | Descrição |
+| ------ | --------- |
+| `social_media_accounts` | Perfis monitorados (Instagram, TikTok) |
+| `social_media_metrics` | Posts e métricas atuais |
+| `metric_snapshots` | Histórico de métricas de posts |
+| `account_snapshots` | Histórico de crescimento de contas |
+| `jobs` | Fila de tarefas assíncronas |
+| `post_ai_analysis` | Análises de IA por post |
+| `enriched_metrics` | Métricas enriquecidas com IA |
+
+---
+
+# **Multi-tenancy**
+
+Todas as tabelas usam `enterprise_id` para isolamento de dados:
+
+```sql
+-- Exemplo de query isolada por tenant
+SELECT * FROM accounts 
+WHERE enterprise_id = 'uuid-da-enterprise'
+ORDER BY created_at DESC;
+```
+
+```go
+func (r *AccountRepository) List(ctx context.Context) ([]Account, error) {
+    enterpriseID := ctx.Value("enterprise_id").(string)
+    
+    rows, err := r.db.Query(ctx, `
+        SELECT * FROM accounts 
+        WHERE enterprise_id = $1
+        ORDER BY created_at DESC
+    `, enterpriseID)
+    // ...
+}
+```
+
+<Info>
+O `enterprise_id` vem do header `X-Enterprise-Id` e é propagado automaticamente pelo middleware de autenticação.
+</Info>
+
+---
+
+# **Schema simplificado**
+
+## **accounts (VIEW)**
+
+```sql
+CREATE VIEW accounts AS
+SELECT 
+  id,
+  enterprise_id,
+  username,
+  platform,
+  profile_name,
+  profile_pic_url,
+  followers_count,
+  following_count,
+  posts_count,
+  last_sync_at,
+  created_at,
+  updated_at
+FROM social_media_accounts;
+```
+
+## **posts (VIEW)**
+
+```sql
+CREATE VIEW posts AS
+SELECT
+  id,
+  account_id,
+  external_id,
+  caption,
+  type,
+  media_url,
+  thumbnail_url,
+  posted_at,
+  latest_likes,
+  latest_comments,
+  latest_views,
+  latest_shares,
+  latest_saves,
+  latest_engagement_rate,
+  created_at,
+  updated_at
+FROM social_media_metrics;
+```
+
+---
+
+# **Conversão de plataforma**
+
+| Contexto | Formato |
+| -------- | ------- |
+| Go (código) | UPPERCASE (`INSTAGRAM`, `TIKTOK`) |
+| Database | lowercase (`instagram`, `tiktok`) |
+
+A conversão é automática via VIEWs — você não precisa se preocupar com isso.
+
+---
+
+# **Supabase Dashboard**
+
+O Supabase oferece ferramentas visuais pra gerenciar o banco:
+
+* **Table Editor** — Visualizar e editar dados
+* **SQL Editor** — Executar queries
+* **Logs** — Monitorar queries lentas
+* **Backups** — Backups automáticos diários
+
+<Info>
+Acesse o dashboard em: `https://supabase.com/dashboard/project/[ref]`
+</Info>

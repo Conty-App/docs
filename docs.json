@@ -11,112 +11,163 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Guias",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Introdução",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "intro",
+              {
+                "group": "Início rápido",
+                "pages": [
+                  "getting-started",
+                  "development",
+                  "docker"
+                ]
+              }
             ]
           },
           {
-            "group": "Customization",
+            "group": "Fundamentos",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts",
+              "auth-and-security",
+              "errors-and-rate-limiting"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Fluxos da API",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "accounts-and-sync",
+              "dashboard-and-analytics",
+              "jobs"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Mídia & IA",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "media-and-ai"
+            ]
+          },
+          {
+            "group": "Inteligência",
+            "pages": [
+              "insights-and-predictions"
+            ]
+          },
+          {
+            "group": "Internals",
+            "pages": [
+              "architecture-overview",
+              "database-and-supabase",
+              "multi-platform-guide"
+            ]
+          },
+          {
+            "group": "Referência",
+            "pages": [
+              "changelog"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Referência da API",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Documentação da API",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "System",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/system/health"
+            ]
+          },
+          {
+            "group": "Jobs",
+            "pages": [
+              "api-reference/jobs/get-status"
+            ]
+          },
+          {
+            "group": "Onboarding",
+            "pages": [
+              "api-reference/onboarding/connect",
+              "api-reference/onboarding/list-accounts",
+              "api-reference/onboarding/sync"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "api-reference/dashboard/get-dashboard"
+            ]
+          },
+          {
+            "group": "Analytics",
+            "pages": [
+              "api-reference/analytics/post-analytics"
+            ]
+          },
+          {
+            "group": "Mídia",
+            "pages": [
+              "api-reference/media/download-tiktok",
+              "api-reference/media/enriched-metrics"
+            ]
+          },
+          {
+            "group": "Insights",
+            "pages": [
+              "api-reference/insights/account-insights",
+              "api-reference/insights/competitive-compare",
+              "api-reference/insights/video-prediction"
             ]
           }
         ]
       }
     ],
     "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
+      "anchors": []
     }
   },
   "logo": {
     "light": "/logo/logo-blue.svg",
-    "dark": "/logo/LOGO.svg"
+    "dark": "/logo/LOGO - CONTY FUNDO PRETO.svg"
   },
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "GitHub",
+        "href": "https://github.com/Conty-App/"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://dashboard.appconty.com"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/ContyAppOficial",
+      "github": "https://github.com/Conty-App/",
+      "linkedin": "https://www.linkedin.com/company/conty-app/"
     }
   }
 }

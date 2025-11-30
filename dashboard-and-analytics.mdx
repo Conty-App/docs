@@ -1,0 +1,154 @@
+---
+title: "Dashboard & Analytics"
+description: "Acesse dados consolidados e análises detalhadas de posts"
+---
+
+Chegou a hora de ver os dados funcionando. A Social API oferece endpoints para você visualizar tudo consolidado — métricas, posts, evolução — tudo num lugar só.
+
+---
+
+# **Dashboard consolidado**
+
+O dashboard é seu painel de controle. Ele retorna uma visão geral da conta com métricas agregadas e posts recentes:
+
+```bash
+curl "https://social-api.appconty.com/accounts/{id}/dashboard?limit=10" \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+## **Parâmetros disponíveis**
+
+| Param | Tipo | Default | Descrição |
+| ----- | ---- | ------- | --------- |
+| `limit` | number | 20 | Quantidade de posts retornados |
+| `start` | string | - | Data inicial (ISO 8601) |
+| `end` | string | - | Data final (ISO 8601) |
+| `sort_by` | string | - | Ordenar por métrica (`likes`, `views`, `comments`) |
+| `sort_order` | string | `desc` | Ordem (`asc` ou `desc`) |
+
+**Exemplo com filtros:**
+
+```bash
+curl "https://social-api.appconty.com/accounts/{id}/dashboard?limit=10&start=2024-01-01&end=2024-01-31&sort_by=likes&sort_order=desc" \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+## **Resposta**
+
+```json
+{
+  "data": {
+    "account": {
+      "id": "uuid",
+      "username": "contyapp",
+      "platform": "INSTAGRAM",
+      "followers_count": 10000,
+      "following_count": 500,
+      "posts_count": 150
+    },
+    "posts": [
+      {
+        "id": "uuid",
+        "external_id": "ABC123",
+        "caption": "Novo post!",
+        "type": "IMAGE",
+        "media_url": "https://...",
+        "thumbnail_url": "https://...",
+        "posted_at": "2025-11-28T15:00:00Z",
+        "latest_likes": 500,
+        "latest_comments": 25,
+        "latest_views": 5000,
+        "latest_engagement_rate": 5.25
+      }
+    ],
+    "summary": {
+      "total_posts": 150,
+      "avg_engagement_rate": 4.5,
+      "total_likes": 75000,
+      "total_comments": 3500
+    }
+  }
+}
+```
+
+---
+
+# **Analytics de um post**
+
+Quer mergulhar fundo num post específico? Use o analytics:
+
+```bash
+curl https://social-api.appconty.com/posts/{id}/analytics \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+## **Resposta**
+
+```json
+{
+  "data": {
+    "post": {
+      "id": "uuid",
+      "caption": "Novo post!",
+      "type": "IMAGE",
+      "posted_at": "2025-11-28T15:00:00Z"
+    },
+    "current_metrics": {
+      "likes": 500,
+      "comments": 25,
+      "views": 5000,
+      "shares": 50,
+      "saves": 100,
+      "engagement_rate": 5.25
+    },
+    "snapshots": [
+      {
+        "recorded_at": "2025-11-28T16:00:00Z",
+        "likes": 100,
+        "comments": 5,
+        "views": 1000
+      },
+      {
+        "recorded_at": "2025-11-29T16:00:00Z",
+        "likes": 500,
+        "comments": 25,
+        "views": 5000
+      }
+    ]
+  }
+}
+```
+
+---
+
+# **Métricas disponíveis**
+
+A API normaliza tudo pra você não se preocupar com diferenças entre plataformas:
+
+| Social Go | Instagram | TikTok |
+| --------- | --------- | ------ |
+| `likes` | Like Count | Digg Count |
+| `views` | Views/Plays | Play Count |
+| `saves` | Saves | Collect Count |
+| `shares` | Shares | Share Count |
+| `comments` | Comments | Comment Count |
+
+<Info>
+Não importa se é Instagram ou TikTok — a API entrega tudo no mesmo formato. Simples assim.
+</Info>
+
+---
+
+# **Snapshots e histórico**
+
+Os snapshots são fotos periódicas das métricas. Com eles você consegue:
+
+* 📈 Analisar crescimento ao longo do tempo
+* 🔍 Detectar tendências e padrões
+* ⚡ Identificar picos de engajamento
+* 📊 Comparar performance entre períodos
+
+É assim que a Conty consegue mostrar evolução — guardando o histórico pra você.

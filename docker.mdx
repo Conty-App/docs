@@ -1,0 +1,55 @@
+---
+title: "Rodando via Docker"
+description: "Execute a Social API em um ambiente isolado sem instalar Go"
+---
+
+Se você quer um ambiente isolado ou não quer instalar Go, use Docker.
+
+---
+
+## **1. Instalar Docker**
+
+**macOS (Homebrew):**
+
+```bash
+brew install --cask docker
+```
+
+**Linux (Ubuntu):**
+
+```bash
+sudo apt update
+sudo apt install docker.io
+sudo systemctl enable --now docker
+```
+
+---
+
+## **2. Build da imagem**
+
+```bash
+make docker-build
+```
+
+---
+
+## **3. Rodar o container**
+
+```bash
+make docker-run
+```
+
+Ou manualmente:
+
+```bash
+docker run --rm -p 8080:8080 \
+  --env-file .env \
+  social-go-api:latest
+```
+
+---
+
+## **Próximos passos**
+
+Com a API rodando via Docker, você pode seguir os mesmos passos do [Início rápido](/quickstart#5-sua-primeira-chamada-real-conectar-uma-conta) para testar suas primeiras chamadas.
+

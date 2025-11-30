@@ -1,0 +1,161 @@
+---
+title: "Guia Multi-Plataforma"
+description: "Como a Social API lida com diferenças entre Instagram e TikTok"
+---
+
+Instagram e TikTok são bem diferentes por baixo dos panos. A Social API abstrai essas diferenças pra você — uma interface, duas plataformas.
+
+---
+
+# **Plataformas suportadas**
+
+| Plataforma | Código | Provider |
+| ---------- | ------ | -------- |
+| Instagram | `INSTAGRAM` | `apify/instagram-scraper` |
+| TikTok | `TIKTOK` | `clockworks/tiktok-scraper` |
+
+---
+
+# **Formato da plataforma**
+
+| Contexto | Formato |
+| -------- | ------- |
+| Go (código) | UPPERCASE (`INSTAGRAM`, `TIKTOK`) |
+| Database | lowercase (`instagram`, `tiktok`) |
+
+A conversão é automática — você sempre usa UPPERCASE na API.
+
+---
+
+# **Normalização de métricas**
+
+A API traduz as métricas de cada plataforma pra um formato único:
+
+| Social Go | Instagram | TikTok |
+| --------- | --------- | ------ |
+| `likes` | Like Count | Digg Count |
+| `views` | Views/Plays | Play Count |
+| `saves` | Saves | Collect Count |
+| `shares` | Shares | Share Count |
+| `comments` | Comments | Comment Count |
+
+<Info>
+Você não precisa saber se é "Digg Count" ou "Like Count" — a API entrega tudo como `likes`. Simples.
+</Info>
+
+---
+
+# **Tipos de conteúdo**
+
+## **Instagram**
+
+| Tipo | Descrição |
+| ---- | --------- |
+| `IMAGE` | Post com imagem única |
+| `VIDEO` | Post com vídeo |
+| `CAROUSEL` | Post com múltiplas mídias |
+| `REEL` | Vídeo curto vertical |
+
+## **TikTok**
+
+| Tipo | Descrição |
+| ---- | --------- |
+| `VIDEO` | Vídeo (único tipo) |
+
+---
+
+# **Diferenças no connect**
+
+## **Instagram**
+
+```json
+{
+  "username": "contyapp",
+  "platform": "INSTAGRAM",
+  "options": {
+    "fetch_profile": true,
+    "fetch_posts": true,
+    "fetch_reels": true,
+    "posts_limit": 20,
+    "reels_limit": 20
+  }
+}
+```
+
+## **TikTok**
+
+```json
+{
+  "username": "contyapp",
+  "platform": "TIKTOK",
+  "options": {
+    "fetch_profile": true,
+    "fetch_posts": true,
+    "posts_limit": 30
+  }
+}
+```
+
+<Info>
+No TikTok, `fetch_posts` busca vídeos. Não existe separação entre posts e reels como no Instagram.
+</Info>
+
+---
+
+# **Coleta de dados via Apify**
+
+A coleta usa **Apify** como provedor de scraping:
+
+<AccordionGroup>
+  <Accordion title="Instagram Scraper">
+    **Provider:** `apify/instagram-scraper`
+    
+    - Perfil público
+    - Posts recentes
+    - Reels
+    - Métricas (likes, comments, views)
+  </Accordion>
+  <Accordion title="TikTok Scraper">
+    **Provider:** `clockworks/tiktok-scraper`
+    
+    - Perfil público
+    - Vídeos recentes
+    - Métricas (plays, likes, comments, shares)
+    - Download de vídeos
+  </Accordion>
+</AccordionGroup>
+
+---
+
+# **Limitações por plataforma**
+
+## **Instagram**
+
+- ⚠️ Apenas perfis públicos
+- ⚠️ Rate limits mais restritivos
+- ⚠️ Stories não persistem (24h)
+
+## **TikTok**
+
+- ⚠️ Apenas perfis públicos
+- ⚠️ Download pode falhar para vídeos antigos
+- ⚠️ Algumas métricas podem ter delay
+
+---
+
+# **Boas práticas**
+
+<CardGroup cols={2}>
+  <Card title="Sempre especifique platform" icon="filter">
+    Use o campo `platform` pra evitar ambiguidade
+  </Card>
+  <Card title="Trate tipos de conteúdo" icon="images">
+    Lembre que tipos variam por plataforma
+  </Card>
+  <Card title="Use métricas normalizadas" icon="display">
+    Prefira os campos padronizados (`likes`, `views`, etc)
+  </Card>
+  <Card title="Cache inteligente" icon="clock">
+    TTLs podem variar — Instagram é mais restritivo
+  </Card>
+</CardGroup>

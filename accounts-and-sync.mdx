@@ -1,0 +1,135 @@
+---
+title: "Contas & Sincronização"
+description: "Como conectar contas sociais e sincronizar dados na Social API"
+---
+
+Tudo começa aqui. Antes de analisar métricas ou gerar insights, você precisa conectar uma conta. Este guia cobre o fluxo completo.
+
+---
+
+# **Conectar uma conta**
+
+Pra conectar uma conta do Instagram ou TikTok:
+
+```bash
+curl -X POST https://social-api.appconty.com/connect \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "neymarjr",
+    "platform": "INSTAGRAM"
+  }'
+```
+
+Simples assim. A API vai buscar o perfil e começar a coletar dados.
+
+## **Parâmetros**
+
+| Campo | Tipo | Descrição |
+| ----- | ---- | --------- |
+| `username` | string | Username da conta (sem @) |
+| `platform` | string | `INSTAGRAM` ou `TIKTOK` |
+
+## **Com opções avançadas**
+
+```bash
+curl -X POST https://social-api.appconty.com/connect \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "contyapp",
+    "platform": "INSTAGRAM",
+    "options": {
+      "fetch_profile": true,
+      "fetch_posts": true,
+      "fetch_reels": true,
+      "posts_limit": 20,
+      "reels_limit": 20,
+      "newer_than": "7 days"
+    }
+  }'
+```
+
+---
+
+# **Listar contas**
+
+Ver todas as contas conectadas:
+
+```bash
+curl https://social-api.appconty.com/accounts \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+## **Resposta**
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "username": "contyapp",
+      "platform": "INSTAGRAM",
+      "profile_name": "Conty",
+      "profile_pic_url": "https://...",
+      "followers_count": 10000,
+      "following_count": 500,
+      "posts_count": 150,
+      "last_sync_at": "2025-11-29T20:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+# **Forçar sincronização**
+
+Os dados são atualizados automaticamente, mas se precisar forçar uma atualização:
+
+```bash
+curl -X POST https://social-api.appconty.com/accounts/{id}/sync \
+  -H "X-Internal-Secret: $INTERNAL_SECRET" \
+  -H "X-Enterprise-Id: $ENTERPRISE_ID"
+```
+
+A sincronização:
+
+* ✅ Atualiza métricas do perfil
+* ✅ Busca novos posts
+* ✅ Atualiza métricas de posts existentes
+* ✅ Cria snapshots pro histórico
+
+---
+
+# **Fluxo recomendado**
+
+<Steps>
+  <Step title="Conectar">
+    Use `POST /connect` pra adicionar a conta
+  </Step>
+  <Step title="Verificar">
+    Use `GET /accounts` pra confirmar que conectou
+  </Step>
+  <Step title="Sincronizar (se necessário)">
+    Use `POST /accounts/{id}/sync` pra forçar atualização
+  </Step>
+  <Step title="Consultar dados">
+    Use `GET /accounts/{id}/dashboard` pra ver tudo consolidado
+  </Step>
+</Steps>
+
+---
+
+# **Resumo dos endpoints**
+
+| Ação | Método | URL |
+| ---- | ------ | --- |
+| Conectar conta | POST | `/connect` |
+| Listar contas | GET | `/accounts` |
+| Forçar sync | POST | `/accounts/{id}/sync` |
+| Ver dashboard | GET | `/accounts/{id}/dashboard` |
+| Analytics de post | GET | `/posts/{id}/analytics` |
