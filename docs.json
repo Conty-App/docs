@@ -87,12 +87,6 @@
             ]
           },
           {
-            "group": "Jobs",
-            "pages": [
-              "api-reference/jobs/get-status"
-            ]
-          },
-          {
             "group": "Onboarding",
             "pages": [
               "api-reference/onboarding/connect",
@@ -125,6 +119,12 @@
               "api-reference/insights/account-insights",
               "api-reference/insights/competitive-compare",
               "api-reference/insights/video-prediction"
+            ]
+          },
+          {
+            "group": "Jobs",
+            "pages": [
+              "api-reference/jobs/get-status"
             ]
           }
         ]
