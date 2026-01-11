@@ -1,0 +1,122 @@
+---
+title: 'Testando'
+description: 'Exemplos de chamadas para testar a API'
+---
+
+<Note>
+Lembre-se de incluir o header `X-API-Key` em todas as requisições.
+</Note>
+
+## Encontrar Matches
+
+Busca criadores compatíveis com uma campanha:
+
+```bash
+curl -X POST http://localhost:8080/api/matches \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key" \
+  -d '{
+    "name": "Campanha Tech",
+    "description": "Desenvolvedores para falar sobre programação",
+    "status": "approved",
+    "target_interests": ["tecnologia", "programação"],
+    "video_formats": ["tutoriais"],
+    "max_results": 5,
+    "min_score": 30
+  }'
+```
+
+---
+
+## Processar Todas Campanhas
+
+Ideal para **cronjobs**. Processa todas campanhas com `status: approved`:
+
+```bash
+curl -X POST "http://localhost:8080/api/matches/process-all?max_results_per_campaign=50&min_score=30" \
+  -H "X-API-Key: dev-key"
+```
+
+**Parâmetros:**
+- `max_results_per_campaign` - Máximo de matches por campanha (default: 50)
+- `min_score` - Score mínimo para incluir (default: 0)
+
+---
+
+## Criar Missões
+
+Cria missões manualmente para usuários específicos:
+
+```bash
+curl -X POST http://localhost:8080/api/missions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key" \
+  -d '{
+    "campaign_id": "uuid-da-campanha",
+    "user_ids": ["uuid-user-1", "uuid-user-2"]
+  }'
+```
+
+---
+
+## Enviar Notificação
+
+Envia push notification via OneSignal:
+
+```bash
+curl -X POST http://localhost:8080/api/notifications/send \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key" \
+  -d '{
+    "target": {
+      "type": "players",
+      "player_ids": ["player-123"]
+    },
+    "data": {
+      "title": "Nova Campanha!",
+      "message": "Você foi selecionado"
+    }
+  }'
+```
+
+---
+
+## Debug: Listar Criadores
+
+```bash
+curl http://localhost:8080/api/debug/creators \
+  -H "X-API-Key: dev-key"
+```
+
+Resposta:
+
+```json
+{
+  "total": 40,
+  "creators": [
+    { "id": "uuid-1", "handle": "@creator1", "profession": "Developer" },
+    { "id": "uuid-2", "handle": "@creator2", "profession": "Designer" }
+  ]
+}
+```
+
+---
+
+## Debug: Detalhes do Criador
+
+```bash
+curl http://localhost:8080/api/debug/creator/{id} \
+  -H "X-API-Key: dev-key"
+```
+
+Resposta:
+
+```json
+{
+  "id": "uuid-1",
+  "handle": "@creator1",
+  "profession": "Developer",
+  "niche": "tecnologia",
+  "embedding_text": "Developer especializado em React e Node.js..."
+}
+```

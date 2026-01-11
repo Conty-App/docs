@@ -1,0 +1,70 @@
+---
+title: 'Introdução'
+description: 'Sistema de matchmaking inteligente para criadores UGC'
+---
+
+## O que é o Conty Match?
+
+Sistema que conecta **campanhas de marcas** com **criadores UGC** usando embeddings semânticos e machine learning.
+
+O fluxo é simples:
+1. Recebe uma campanha aprovada
+2. Busca criadores compatíveis via similaridade semântica
+3. Aplica filtros e calcula scores
+4. Cria missões patrocinadas automaticamente
+5. Notifica os criadores selecionados
+
+---
+
+## Stack
+
+| Componente | Tecnologia |
+|------------|------------|
+| API | Go 1.24 + Gin |
+| ML Service | Python 3.10 + FAISS + Sentence Transformers |
+| Database | Supabase (Postgres) |
+| Notifications | OneSignal |
+| Infra | Docker + Google Cloud Run |
+
+---
+
+## URLs
+
+| Ambiente | URL |
+|----------|-----|
+| **Produção** | `https://conty-match-api-4xfik3pk2q-uc.a.run.app` |
+| **Local** | `http://localhost:8080` |
+
+---
+
+## Autenticação
+
+Todas as rotas `/api/*` precisam do header:
+
+```bash
+X-API-Key: sua-chave-aqui
+```
+
+As chaves são configuradas via variável de ambiente `API_KEYS`.
+
+---
+
+## Arquitetura
+
+```
+┌─────────────┐
+│   Client    │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│  GO API (Port 8080)             │
+│  Handler → Service → Matching   │
+└────────┬───────────────┬────────┘
+         │               │
+         ▼               ▼
+    ┌──────────┐   ┌─────────────┐
+    │ Supabase │   │ Python ML   │
+    │ Postgres │   │ (FAISS)     │
+    └──────────┘   └─────────────┘
+```

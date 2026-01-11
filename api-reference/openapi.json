@@ -1,14 +1,18 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Social Go API",
+    "title": "Conty APIs",
     "version": "v2.0.0",
-    "description": "API para sincronizacao e analise de metricas de redes sociais (Instagram e TikTok).\n\nEsta API e um microsservico interno projetado para ser consumido exclusivamente pelo backend principal da Conty."
+    "description": "APIs internas da Conty.\n\n**Social Go API**: Sincronizacao e analise de metricas de redes sociais (Instagram e TikTok).\n\n**Conty Match API**: Sistema de matchmaking inteligente para criadores UGC usando embeddings semanticos."
   },
   "servers": [
     {
       "url": "https://social-api.appconty.com",
-      "description": "Servidor de Produção"
+      "description": "Social Go - Produção"
+    },
+    {
+      "url": "https://conty-match-api-4xfik3pk2q-uc.a.run.app",
+      "description": "Conty Match - Produção"
     },
     {
       "url": "http://localhost:8080",
@@ -545,6 +549,278 @@
           }
         }
       }
+    },
+    "/api/matches": {
+      "post": {
+        "tags": ["Match"],
+        "summary": "Encontrar matches para campanha",
+        "operationId": "findMatches",
+        "description": "Encontra criadores UGC que fazem match com os criterios da campanha usando embeddings semanticos e machine learning.",
+        "security": [{ "MatchAPIKey": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchRequest"
+              },
+              "example": {
+                "name": "Campanha Tech 2024",
+                "goal": "branding",
+                "description": "Procuramos desenvolvedores para falar sobre programação",
+                "status": "approved",
+                "target_age_min": 20,
+                "target_age_max": 40,
+                "target_gender": "todos",
+                "target_interests": ["tecnologia", "programação"],
+                "video_formats": ["tutoriais"],
+                "max_results": 5
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matches encontrados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requisicao invalida."
+          },
+          "401": {
+            "description": "API Key invalida."
+          },
+          "500": {
+            "description": "Erro interno."
+          }
+        }
+      }
+    },
+    "/api/matches/process-all": {
+      "post": {
+        "tags": ["Match"],
+        "summary": "Processar todas as campanhas aprovadas",
+        "operationId": "processAllMatches",
+        "description": "Processa todas as campanhas com status 'approved' do banco de dados, encontrando matches para cada uma. Cria missoes e envia notificacoes automaticamente. Ideal para cronjobs.",
+        "security": [{ "MatchAPIKey": [] }],
+        "parameters": [
+          {
+            "name": "max_results_per_campaign",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Maximo de matches por campanha"
+          },
+          {
+            "name": "min_score",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 100
+            },
+            "description": "Score minimo para incluir match"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Processamento concluido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessAllMatchesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API Key invalida."
+          },
+          "500": {
+            "description": "Erro no processamento."
+          }
+        }
+      }
+    },
+    "/api/missions": {
+      "post": {
+        "tags": ["Match"],
+        "summary": "Criar missoes patrocinadas",
+        "operationId": "createMissions",
+        "description": "Cria missoes patrocinadas para os usuarios matched com uma campanha.",
+        "security": [{ "MatchAPIKey": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMissionsRequest"
+              },
+              "example": {
+                "campaign_id": "660e8400-e29b-41d4-a716-446655440000",
+                "user_ids": [
+                  "770e8400-e29b-41d4-a716-446655440001",
+                  "770e8400-e29b-41d4-a716-446655440002"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Missoes criadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateMissionsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requisicao invalida."
+          },
+          "401": {
+            "description": "API Key invalida."
+          },
+          "503": {
+            "description": "Servico indisponivel."
+          }
+        }
+      }
+    },
+    "/api/notifications/send": {
+      "post": {
+        "tags": ["Match"],
+        "summary": "Enviar notificacao push",
+        "operationId": "sendNotification",
+        "description": "Envia uma notificacao push generica via OneSignal.",
+        "security": [{ "MatchAPIKey": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendNotificationRequest"
+              },
+              "example": {
+                "target": {
+                  "type": "players",
+                  "player_ids": ["player-123", "player-456"]
+                },
+                "data": {
+                  "title": "Nova Campanha!",
+                  "message": "Voce foi selecionado para uma nova campanha",
+                  "action_url": "conty://campaigns/123"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notificacao enviada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requisicao invalida."
+          },
+          "401": {
+            "description": "API Key invalida."
+          }
+        }
+      }
+    },
+    "/api/debug/creators": {
+      "get": {
+        "tags": ["Match"],
+        "summary": "Listar todos os criadores",
+        "operationId": "listCreators",
+        "description": "Retorna lista resumida de todos os criadores disponiveis para matching.",
+        "security": [{ "MatchAPIKey": [] }],
+        "responses": {
+          "200": {
+            "description": "Lista de criadores.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatorsListResponse"
+                },
+                "example": {
+                  "total": 40,
+                  "creators": [
+                    { "id": "uuid-1", "handle": "@creator1", "profession": "Developer" },
+                    { "id": "uuid-2", "handle": "@creator2", "profession": "Designer" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API Key invalida."
+          },
+          "500": {
+            "description": "Erro interno."
+          }
+        }
+      }
+    },
+    "/api/debug/creator/{id}": {
+      "get": {
+        "tags": ["Match"],
+        "summary": "Detalhes de um criador",
+        "operationId": "getCreator",
+        "description": "Retorna detalhes completos de um criador especifico incluindo texto de embedding.",
+        "security": [{ "MatchAPIKey": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ID do criador"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhes do criador.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatorDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API Key invalida."
+          },
+          "404": {
+            "description": "Criador nao encontrado."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -552,7 +828,14 @@
       "InternalAuth": {
         "type": "apiKey",
         "in": "header",
-        "name": "X-Internal-Secret"
+        "name": "X-Internal-Secret",
+        "description": "Autenticacao para Social Go API"
+      },
+      "MatchAPIKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "Autenticacao para Conty Match API"
       }
     },
     "schemas": {
@@ -842,6 +1125,183 @@
             }
           },
           "conty_viral_score": { "type": "number" }
+        }
+      },
+      "MatchRequest": {
+        "type": "object",
+        "required": ["name", "description", "status"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "brand_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "description": "Nome da campanha" },
+          "goal": { "type": "string", "description": "Objetivo: branding, awareness, conversion" },
+          "description": { "type": "string", "description": "Descricao detalhada da campanha" },
+          "status": { "type": "string", "enum": ["approved"], "description": "Deve ser 'approved'" },
+          "target_age_min": { "type": "integer", "minimum": 0 },
+          "target_age_max": { "type": "integer", "minimum": 0 },
+          "target_gender": { "type": "string", "enum": ["todos", "masculino", "feminino", "outro"] },
+          "target_interests": { "type": "array", "items": { "type": "string" } },
+          "additional_notes": { "type": "string" },
+          "video_formats": { "type": "array", "items": { "type": "string" } },
+          "min_followers": { "type": "integer", "minimum": 0 },
+          "min_engagement": { "type": "number", "format": "float", "minimum": 0, "maximum": 1 },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50 },
+          "min_similarity": { "type": "number", "format": "float", "minimum": 0, "maximum": 1 },
+          "min_score": { "type": "number", "format": "float", "minimum": 0, "maximum": 100 }
+        }
+      },
+      "MatchResponse": {
+        "type": "object",
+        "properties": {
+          "total_matches": { "type": "integer" },
+          "matches": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ScoredCreator" }
+          },
+          "time_taken": { "type": "string" }
+        }
+      },
+      "ScoredCreator": {
+        "type": "object",
+        "properties": {
+          "creator": { "$ref": "#/components/schemas/Creator" },
+          "similarity": { "type": "number", "format": "float" },
+          "score": { "type": "number", "format": "float" },
+          "score_details": {
+            "type": "object",
+            "properties": {
+              "semantic_score": { "type": "number" },
+              "engagement_score": { "type": "number" },
+              "followers_score": { "type": "number" },
+              "completion_score": { "type": "number" }
+            }
+          }
+        }
+      },
+      "Creator": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "instagram_handle": { "type": "string" },
+          "profession": { "type": "string" },
+          "niche": { "type": "string" },
+          "followers": { "type": "integer" },
+          "engagement_rate": { "type": "number" },
+          "content_style": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "ProcessAllMatchesResponse": {
+        "type": "object",
+        "properties": {
+          "total_campaigns": { "type": "integer" },
+          "processed_count": { "type": "integer" },
+          "results": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CampaignMatchResult" }
+          },
+          "time_taken": { "type": "string" }
+        }
+      },
+      "CampaignMatchResult": {
+        "type": "object",
+        "properties": {
+          "campaign_id": { "type": "string", "format": "uuid" },
+          "campaign_name": { "type": "string" },
+          "enterprise_id": { "type": "string", "format": "uuid" },
+          "total_matches": { "type": "integer" },
+          "top_matches": { "type": "array", "items": { "$ref": "#/components/schemas/ScoredCreator" } },
+          "missions_created": { "type": "boolean" },
+          "notification_sent": { "type": "boolean" },
+          "error": { "type": "string" }
+        }
+      },
+      "CreateMissionsRequest": {
+        "type": "object",
+        "required": ["campaign_id", "user_ids"],
+        "properties": {
+          "campaign_id": { "type": "string", "format": "uuid" },
+          "user_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": { "type": "string", "format": "uuid" }
+          }
+        }
+      },
+      "CreateMissionsResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "missions_count": { "type": "integer" },
+          "message": { "type": "string" }
+        }
+      },
+      "SendNotificationRequest": {
+        "type": "object",
+        "required": ["target", "data"],
+        "properties": {
+          "target": { "$ref": "#/components/schemas/NotificationTarget" },
+          "data": { "$ref": "#/components/schemas/NotificationData" }
+        }
+      },
+      "NotificationTarget": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": { "type": "string", "enum": ["all", "players", "segment"] },
+          "player_ids": { "type": "array", "items": { "type": "string" } },
+          "segment": { "type": "string" }
+        }
+      },
+      "NotificationData": {
+        "type": "object",
+        "required": ["title", "message"],
+        "properties": {
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "data": { "type": "object", "additionalProperties": true },
+          "action_url": { "type": "string", "format": "uri" },
+          "priority": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "ttl": { "type": "integer" },
+          "sound": { "type": "string" }
+        }
+      },
+      "NotificationResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "notification_id": { "type": "string" },
+          "recipients": { "type": "integer" },
+          "external_id": { "type": "string" },
+          "error": { "type": "string" }
+        }
+      },
+      "CreatorsListResponse": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "creators": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "handle": { "type": "string" },
+                "profession": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "CreatorDetails": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "handle": { "type": "string" },
+          "profession": { "type": "string" },
+          "niche": { "type": "string" },
+          "embedding_text": { "type": "string" }
         }
       }
     }

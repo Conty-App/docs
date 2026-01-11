@@ -11,7 +11,36 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Guias",
+        "tab": "Conty Match",
+        "groups": [
+          {
+            "group": "Começando",
+            "pages": [
+              "match/intro",
+              "match/setup"
+            ]
+          },
+          {
+            "group": "Uso",
+            "pages": [
+              "match/testing"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api-reference/match/find-matches",
+              "api-reference/match/process-all",
+              "api-reference/match/create-missions",
+              "api-reference/match/send-notification",
+              "api-reference/match/list-creators",
+              "api-reference/match/get-creator"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Social Api",
         "groups": [
           {
             "group": "Introdução",
@@ -125,6 +154,17 @@
             "group": "Jobs",
             "pages": [
               "api-reference/jobs/get-status"
+            ]
+          },
+          {
+            "group": "Match",
+            "pages": [
+              "api-reference/match/find-matches",
+              "api-reference/match/process-all",
+              "api-reference/match/create-missions",
+              "api-reference/match/send-notification",
+              "api-reference/match/list-creators",
+              "api-reference/match/get-creator"
             ]
           }
         ]

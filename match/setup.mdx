@@ -1,0 +1,103 @@
+---
+title: 'Setup Local'
+description: 'Como rodar o Conty Match localmente'
+---
+
+## Com Docker (Recomendado)
+
+```bash
+cd conty-match
+
+# Build e sobe os containers
+docker compose build --no-cache
+docker compose up -d
+
+# Ver logs
+docker compose logs -f
+```
+
+### Comandos Make
+
+```bash
+make rebuild  # Rebuild completo
+make logs     # Ver logs
+make down     # Parar containers
+make test     # Testar API
+```
+
+---
+
+## Sem Docker
+
+### 1. Variáveis de Ambiente
+
+Crie um arquivo `.env` ou exporte:
+
+```bash
+# Server
+export PORT=8080
+export GIN_MODE=debug
+
+# Supabase
+export SUPABASE_REST_URL=https://<project>.supabase.co/rest/v1
+export SUPABASE_SERVICE_ROLE=<service-role-key>
+export SUPABASE_ANON_KEY=<anon-key>
+
+# Embeddings
+export EMBEDDING_SERVICE_URL=http://localhost:5000
+
+# Auth
+export API_KEYS=dev-key,outra-key
+
+# OneSignal
+export ONESIGNAL_APP_ID=<app-id>
+export ONESIGNAL_REST_API_KEY=<api-key>
+```
+
+### 2. Iniciar Serviço de Embeddings
+
+```bash
+cd services/embeddings
+pip install -r requirements.txt
+python main.py
+```
+
+O serviço ML roda na porta **5000**.
+
+### 3. Iniciar API Go
+
+Em outro terminal:
+
+```bash
+go run ./cmd/api
+```
+
+Ou compile:
+
+```bash
+go build -o conty-match ./cmd/api
+./conty-match
+```
+
+---
+
+## Health Check
+
+```bash
+# API Go
+curl http://localhost:8080/health
+
+# Serviço ML
+curl http://localhost:5000/health
+```
+
+Resposta esperada:
+
+```json
+{
+  "status": "healthy",
+  "service": "conty-match-api",
+  "version": "1.0.0",
+  "total_creators": 40
+}
+```
