@@ -66,15 +66,16 @@ O serviço ML roda na porta **5000**.
 
 ### 3. Iniciar API Go
 
-Em outro terminal:
+Em outro terminal, carregue o `.env` e rode:
 
 ```bash
-go run ./cmd/api
+set -a && source .env && set +a && go run ./cmd/api
 ```
 
-Ou compile:
+Ou compile e execute:
 
 ```bash
+set -a && source .env && set +a
 go build -o conty-match ./cmd/api
 ./conty-match
 ```
