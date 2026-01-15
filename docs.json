@@ -11,6 +11,30 @@
   "navigation": {
     "tabs": [
       {
+        "tab": "AI Creators",
+        "groups": [
+          {
+            "group": "Começando",
+            "pages": [
+              "ai-creators/intro",
+              "ai-creators/setup"
+            ]
+          },
+          {
+            "group": "Uso",
+            "pages": [
+              "ai-creators/usage"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api-reference/ai-creators/chat"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Conty Match",
         "groups": [
           {
@@ -165,6 +189,12 @@
               "api-reference/match/send-notification",
               "api-reference/match/list-creators",
               "api-reference/match/get-creator"
+            ]
+          },
+          {
+            "group": "AI Creators",
+            "pages": [
+              "api-reference/ai-creators/chat"
             ]
           }
         ]

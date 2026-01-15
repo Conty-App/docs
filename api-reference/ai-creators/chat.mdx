@@ -1,0 +1,590 @@
+---
+title: 'POST /api/chat'
+api: 'POST /api/chat'
+description: 'Endpoint principal para interação com o agente de IA'
+---
+
+## Descrição
+
+Endpoint de chat com streaming SSE para busca e recomendação de criadores UGC. O agente usa GPT-4o com fallback automático para Claude e Gemini.
+
+---
+
+## Request
+
+<ParamField body="message" type="string" required>
+  Mensagem descrevendo o tipo de criador desejado em linguagem natural
+</ParamField>
+
+<ParamField body="session_id" type="string" required>
+  ID único da sessão (UUID recomendado). Mantém o histórico da conversa
+</ParamField>
+
+<ParamField body="brand_id" type="string">
+  ID da marca (para uso futuro em contexto enterprise)
+</ParamField>
+
+<ParamField body="attachments" type="array">
+  Anexos opcionais (imagens ou áudio) - para uso futuro
+</ParamField>
+
+### Exemplo de Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Busque criadores de moda feminina com foco em sustentabilidade",
+    "session_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('http://localhost:3000/api/chat', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    message: 'Busque criadores de moda feminina',
+    session_id: crypto.randomUUID(),
+  }),
+});
+```
+
+```python Python
+import requests
+import uuid
+
+response = requests.post(
+    'http://localhost:3000/api/chat',
+    json={
+        'message': 'Busque criadores de moda feminina',
+        'session_id': str(uuid.uuid4())
+    },
+    stream=True
+)
+```
+
+</CodeGroup>
+
+---
+
+## Response
+
+**Status Code:** `200 OK`
+
+**Content-Type:** `text/event-stream`
+
+**Headers:**
+
+| Header | Valor |
+|--------|-------|
+| `Content-Type` | `text/event-stream` |
+| `Cache-Control` | `no-cache` |
+| `Connection` | `keep-alive` |
+| `Access-Control-Allow-Origin` | `*` |
+| `Access-Control-Allow-Methods` | `POST, OPTIONS` |
+| `Access-Control-Allow-Headers` | `Content-Type` |
+
+### Formato SSE
+
+Cada evento é enviado no formato:
+
+```
+data: {"type":"event_type","field":"value"}\n\n
+```
+
+### Exemplo de Stream Completo
+
+```
+data: {"type":"reasoning","content":"Analisando sua solicitação para encontrar criadores de moda sustentável..."}
+
+data: {"type":"tool_call","tool":"filterCreators","args":{"query":"moda feminina sustentabilidade","gender":"female"}}
+
+data: {"type":"tool_result","tool":"filterCreators","result":{"success":true,"filters":{"query":"moda feminina sustentabilidade","gender":"female"},"count":8,"creators":[...]}}
+
+data: {"type":"creators","data":[{"creatorId":"550e8400-e29b-41d4-a716-446655440000","name":"Ana Costa","biography":"Moda sustentável e consciente...","profileImageUrl":"https://...","gender":"female","similarity":0.94}]}
+
+data: {"type":"text","content":"Encontrei 8 criadoras "}
+
+data: {"type":"text","content":"de moda sustentável:\n\n"}
+
+data: {"type":"text","content":"1. **Ana Costa** - Especialista em moda consciente\n"}
+
+data: {"type":"done"}
+```
+
+---
+
+## Tipos de Eventos SSE
+
+### `reasoning`
+
+Pensamento interno do modelo (quando disponível).
+
+```json
+{
+  "type": "reasoning",
+  "content": "Analisando a solicitação para encontrar criadores de moda..."
+}
+```
+
+### `tool_call`
+
+Indica que uma tool está sendo executada.
+
+```json
+{
+  "type": "tool_call",
+  "tool": "searchCreators",
+  "args": {
+    "query": "criadores de moda feminina",
+    "limit": 10
+  }
+}
+```
+
+### `tool_result`
+
+Resultado da execução de uma tool.
+
+```json
+{
+  "type": "tool_result",
+  "tool": "searchCreators",
+  "result": {
+    "success": true,
+    "query": "criadores de moda feminina",
+    "count": 10,
+    "creators": [...]
+  }
+}
+```
+
+### `creators`
+
+Lista de criadores encontrados (para renderização em UI).
+
+```json
+{
+  "type": "creators",
+  "data": [
+    {
+      "creatorId": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Maria Silva",
+      "biography": "Criadora de conteúdo sobre moda...",
+      "profileImageUrl": "https://example.com/image.jpg",
+      "gender": "female",
+      "similarity": 0.92
+    }
+  ]
+}
+```
+
+### `text`
+
+Texto da resposta do agente (streaming incremental).
+
+```json
+{
+  "type": "text",
+  "content": "Encontrei 10 criadores..."
+}
+```
+
+<Info>
+Este evento pode aparecer múltiplas vezes. Concatene os valores de `content` para formar a resposta completa.
+</Info>
+
+### `done`
+
+Indica que o stream foi finalizado com sucesso.
+
+```json
+{
+  "type": "done"
+}
+```
+
+### `error`
+
+Indica que ocorreu um erro durante o processamento.
+
+```json
+{
+  "type": "error",
+  "content": "Erro ao buscar criadores: conexão com banco falhou"
+}
+```
+
+<Warning>
+Após um evento `error`, sempre será enviado um evento `done` para finalizar o stream.
+</Warning>
+
+---
+
+## Tools Disponíveis
+
+O agente tem acesso a 4 ferramentas que podem ser chamadas durante a conversa:
+
+### searchCreators
+
+Busca semântica pura por similaridade de embeddings. Use quando a marca descrever o tipo de criador sem especificar filtros.
+
+<ParamField body="query" type="string" required>
+  Descrição do tipo de criador desejado em linguagem natural
+</ParamField>
+
+<ParamField body="limit" type="number" default={10}>
+  Quantidade de resultados (1-20)
+</ParamField>
+
+**Exemplo de tool_call:**
+
+```json
+{
+  "type": "tool_call",
+  "tool": "searchCreators",
+  "args": {
+    "query": "criadores de fitness masculino",
+    "limit": 10
+  }
+}
+```
+
+**Exemplo de tool_result:**
+
+```json
+{
+  "type": "tool_result",
+  "tool": "searchCreators",
+  "result": {
+    "success": true,
+    "query": "criadores de fitness masculino",
+    "count": 10,
+    "creators": [
+      {
+        "creatorId": "uuid-1",
+        "name": "João Silva",
+        "biography": "Personal trainer e criador de conteúdo fitness",
+        "profileImageUrl": "https://...",
+        "gender": "male",
+        "similarity": 0.89
+      }
+    ]
+  }
+}
+```
+
+---
+
+### filterCreators
+
+Busca híbrida combinando semântica com filtros SQL. Use quando o usuário especificar filtros como gênero ou plataforma.
+
+<ParamField body="query" type="string">
+  Busca semântica opcional
+</ParamField>
+
+<ParamField body="gender" type="string">
+  Filtro por gênero: `male`, `female`, ou `other`
+</ParamField>
+
+<ParamField body="platform" type="string">
+  Filtro por plataforma: `instagram`, `tiktok`, ou `youtube`
+</ParamField>
+
+<ParamField body="limit" type="number" default={10}>
+  Quantidade de resultados (1-20)
+</ParamField>
+
+**Exemplo de tool_call:**
+
+```json
+{
+  "type": "tool_call",
+  "tool": "filterCreators",
+  "args": {
+    "query": "criadores de beleza",
+    "gender": "female",
+    "platform": "instagram",
+    "limit": 15
+  }
+}
+```
+
+**Exemplo de tool_result:**
+
+```json
+{
+  "type": "tool_result",
+  "tool": "filterCreators",
+  "result": {
+    "success": true,
+    "filters": {
+      "query": "criadores de beleza",
+      "gender": "female",
+      "platform": "instagram"
+    },
+    "count": 15,
+    "creators": [...]
+  }
+}
+```
+
+---
+
+### inviteCreator
+
+Convida um criador específico para participar de uma campanha.
+
+<ParamField body="creatorId" type="string (UUID)" required>
+  ID único do criador
+</ParamField>
+
+<ParamField body="campaignId" type="string (UUID)" required>
+  ID da campanha para o convite
+</ParamField>
+
+<ParamField body="offerValue" type="number" required>
+  Valor da oferta em R$ (deve ser positivo)
+</ParamField>
+
+<ParamField body="message" type="string">
+  Mensagem personalizada opcional para o criador
+</ParamField>
+
+**Exemplo de tool_call:**
+
+```json
+{
+  "type": "tool_call",
+  "tool": "inviteCreator",
+  "args": {
+    "creatorId": "550e8400-e29b-41d4-a716-446655440000",
+    "campaignId": "660e8400-e29b-41d4-a716-446655440001",
+    "offerValue": 500,
+    "message": "Adoramos seu trabalho e gostaríamos de convidá-la para nossa campanha!"
+  }
+}
+```
+
+**Exemplo de tool_result (sucesso):**
+
+```json
+{
+  "type": "tool_result",
+  "tool": "inviteCreator",
+  "result": {
+    "success": true,
+    "inviteId": "770e8400-e29b-41d4-a716-446655440002",
+    "status": "sent",
+    "creator": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Maria Silva",
+      "profileImageUrl": "https://..."
+    },
+    "campaignId": "660e8400-e29b-41d4-a716-446655440001",
+    "offerValue": 500,
+    "message": "Adoramos seu trabalho...",
+    "createdAt": "2026-01-15T10:30:00.000Z"
+  }
+}
+```
+
+**Exemplo de tool_result (erro):**
+
+```json
+{
+  "type": "tool_result",
+  "tool": "inviteCreator",
+  "result": {
+    "success": false,
+    "inviteId": null,
+    "status": "error",
+    "error": "Creator with ID xxx not found",
+    "code": "CREATOR_NOT_FOUND"
+  }
+}
+```
+
+---
+
+### messageCreator
+
+Envia uma mensagem direta para um criador.
+
+<ParamField body="creatorId" type="string (UUID)" required>
+  ID único do criador
+</ParamField>
+
+<ParamField body="message" type="string" required>
+  Conteúdo da mensagem (1-2000 caracteres)
+</ParamField>
+
+<ParamField body="context" type="string" default="general">
+  Contexto da mensagem: `campaign` ou `general`
+</ParamField>
+
+**Exemplo de tool_call:**
+
+```json
+{
+  "type": "tool_call",
+  "tool": "messageCreator",
+  "args": {
+    "creatorId": "550e8400-e29b-41d4-a716-446655440000",
+    "message": "Olá! Gostaríamos de saber mais sobre sua disponibilidade para campanhas.",
+    "context": "campaign"
+  }
+}
+```
+
+**Exemplo de tool_result (sucesso):**
+
+```json
+{
+  "type": "tool_result",
+  "tool": "messageCreator",
+  "result": {
+    "success": true,
+    "messageId": "880e8400-e29b-41d4-a716-446655440003",
+    "status": "sent",
+    "recipient": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Maria Silva",
+      "profileImageUrl": "https://..."
+    },
+    "context": "campaign",
+    "sentAt": "2026-01-15T10:35:00.000Z"
+  }
+}
+```
+
+---
+
+## Estruturas de Dados
+
+### CreatorSearchResult
+
+```typescript
+interface CreatorSearchResult {
+  creatorId: string;              // UUID do criador
+  name: string;                   // Nome do criador
+  biography: string | null;       // Biografia/bio
+  profileImageUrl: string | null; // URL da imagem de perfil
+  gender: string | null;          // 'male' | 'female' | 'other'
+  similarity: number;             // Score de similaridade (0-1)
+}
+```
+
+### ChatRequest
+
+```typescript
+interface ChatRequest {
+  message: string;      // Mensagem do usuário (obrigatório)
+  session_id: string;   // ID da sessão (obrigatório)
+  brand_id?: string;    // ID da marca (opcional)
+  attachments?: {       // Anexos (opcional)
+    type: 'image' | 'audio';
+    url: string;
+  }[];
+}
+```
+
+### SSEEventPayload
+
+```typescript
+type SSEEventPayload = 
+  | { type: 'reasoning'; content: string }
+  | { type: 'tool_call'; tool: string; args: Record<string, unknown> }
+  | { type: 'tool_result'; tool: string; result: unknown }
+  | { type: 'text'; content: string }
+  | { type: 'creators'; data: CreatorSearchResult[] }
+  | { type: 'done' }
+  | { type: 'error'; content: string };
+```
+
+---
+
+## Códigos de Erro
+
+### HTTP Errors
+
+<ResponseField name="400 Bad Request">
+  Campos obrigatórios faltando ou inválidos.
+
+```json
+{
+  "error": "Missing required fields: message, session_id"
+}
+```
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error">
+  Erro interno no servidor.
+
+```json
+{
+  "error": "Internal server error message"
+}
+```
+</ResponseField>
+
+### Error Codes via SSE
+
+| Código | Descrição |
+|--------|-----------|
+| `CREATOR_NOT_FOUND` | Criador não existe no banco |
+| `DATABASE_ERROR` | Erro de conexão/query no Supabase |
+| `EMBEDDING_ERROR` | Erro ao gerar embedding da query |
+| `INVITE_ERROR` | Erro ao criar convite |
+| `MESSAGE_ERROR` | Erro ao enviar mensagem |
+
+---
+
+## CORS
+
+A API suporta requisições cross-origin.
+
+### Preflight (OPTIONS)
+
+```http
+OPTIONS /api/chat HTTP/1.1
+
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+Access-Control-Max-Age: 86400
+```
+
+---
+
+## Limites e Configurações
+
+| Parâmetro | Valor | Descrição |
+|-----------|-------|-----------|
+| Max steps | 6 | Máximo de iterações tool → resposta |
+| Max criadores | 20 | Limite por busca |
+| Default criadores | 10 | Padrão se não especificado |
+| Histórico | 50 msgs | Mensagens mantidas por sessão |
+| Timeout | 60s | Recomendado para clientes |
+| Embedding dims | 1536 | text-embedding-3-small |
+
+---
+
+## Health Check
+
+Para verificar se a API está funcionando:
+
+```bash
+curl http://localhost:3000/health
+```
+
+**Resposta:**
+
+```json
+{"status":"ok"}
+```

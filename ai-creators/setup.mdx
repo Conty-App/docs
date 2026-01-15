@@ -1,0 +1,294 @@
+---
+title: 'Configuração'
+description: 'Configure o ambiente de desenvolvimento do AI Creators'
+---
+
+## Pré-requisitos
+
+- [Node.js](https://nodejs.org/) 18+ ou superior
+- Conta na [Vercel](https://vercel.com/) com acesso ao AI Gateway
+- Projeto no [Supabase](https://supabase.com/) com pgvector habilitado
+
+---
+
+## Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto:
+
+```bash
+# Vercel AI Gateway (obrigatório)
+AI_GATEWAY_API_KEY=your_gateway_key_here
+
+# Supabase (obrigatório)
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+
+# Server (opcional)
+PORT=3000
+LOG_LEVEL=info
+```
+
+<Info>
+Para obter a `AI_GATEWAY_API_KEY`, acesse: https://vercel.com/~/ai/api-keys
+</Info>
+
+<Warning>
+O AI Gateway roteia automaticamente entre OpenAI, Anthropic e Google. Você não precisa de API keys individuais.
+</Warning>
+
+---
+
+## Instalação
+
+Clone o repositório e instale as dependências:
+
+```bash
+git clone https://github.com/Conty-App/ai-creators.git
+cd ai-creators
+npm install
+```
+
+---
+
+## Banco de Dados
+
+O banco precisa ter a extensão `pgvector` e as funções RPC configuradas.
+
+### Extensão pgvector
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+### Tabela de Embeddings
+
+```sql
+CREATE TABLE creator_embeddings (
+  id BIGSERIAL PRIMARY KEY,
+  creator_id UUID NOT NULL REFERENCES users(id_user),
+  content TEXT NOT NULL,
+  embedding VECTOR(1536),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice HNSW para busca rápida
+CREATE INDEX ON creator_embeddings 
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
+```
+
+### Tabela de Mensagens de Chat
+
+```sql
+CREATE TABLE chat_messages (
+  id BIGSERIAL PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_chat_messages_session ON chat_messages(session_id);
+```
+
+### Função RPC: search_creators_hybrid
+
+```sql
+CREATE OR REPLACE FUNCTION search_creators_hybrid(
+  query_embedding vector(1536),
+  match_count int DEFAULT 10,
+  filter_gender text DEFAULT NULL,
+  filter_platform text DEFAULT NULL
+)
+RETURNS TABLE (
+  creator_id uuid,
+  name text,
+  biography text,
+  profile_image_url text,
+  gender text,
+  similarity float
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    ce.creator_id,
+    u.name,
+    u.biography,
+    u.profile_image_url,
+    u.gender,
+    1 - (ce.embedding <=> query_embedding) as similarity
+  FROM creator_embeddings ce
+  JOIN users u ON u.id_user = ce.creator_id
+  WHERE 
+    ce.embedding IS NOT NULL
+    AND (filter_gender IS NULL OR u.gender = filter_gender)
+    AND (filter_platform IS NULL OR 
+         (filter_platform = 'instagram' AND u."insta@" IS NOT NULL) OR
+         (filter_platform = 'tiktok' AND u."tiktok@" IS NOT NULL) OR
+         (filter_platform = 'youtube' AND u."youtube@" IS NOT NULL))
+  ORDER BY ce.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
+```
+
+### Função RPC: get_creator_details
+
+```sql
+CREATE OR REPLACE FUNCTION get_creator_details(p_creator_id uuid)
+RETURNS TABLE (
+  id uuid,
+  name text,
+  biography text,
+  profile_image_url text,
+  gender text,
+  instagram text,
+  tiktok text,
+  youtube text,
+  profession text,
+  content_style text,
+  campaigns_completed int,
+  average_rating float
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    u.id_user as id,
+    u.name,
+    u.biography,
+    u.profile_image_url,
+    u.gender,
+    u."insta@" as instagram,
+    u."tiktok@" as tiktok,
+    u."youtube@" as youtube,
+    u.profession,
+    u.content_style,
+    (SELECT COUNT(*)::int FROM daily_missions dm WHERE dm.id_user = u.id_user) as campaigns_completed,
+    (SELECT AVG(dm.rating)::float FROM daily_missions dm WHERE dm.id_user = u.id_user AND dm.rating IS NOT NULL) as average_rating
+  FROM users u
+  WHERE u.id_user = p_creator_id;
+END;
+$$;
+```
+
+---
+
+## Rodando Localmente
+
+### Modo Desenvolvimento
+
+```bash
+npm run dev
+```
+
+O servidor inicia em `http://localhost:3000` com hot reload via `tsx`.
+
+<Info>
+Se a porta 3000 estiver ocupada, o servidor tenta automaticamente as portas 3001 e 3002.
+</Info>
+
+### Modo Produção
+
+```bash
+npm run build
+npm start
+```
+
+---
+
+## Testando
+
+### Health Check
+
+Verifique se a API está funcionando:
+
+```bash
+curl http://localhost:3000/health
+```
+
+**Resposta esperada:**
+
+```json
+{"status":"ok"}
+```
+
+### Teste de Chat
+
+Faça uma requisição de teste:
+
+```bash
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Busque criadores de moda feminina",
+    "session_id": "test-session-123"
+  }'
+```
+
+Você deve receber eventos SSE no terminal.
+
+### Scripts de Teste
+
+```bash
+# Testa as 4 tools individualmente
+npm run test:tools
+
+# Testa o agente (generateText + streamText)
+npm run test:agent
+```
+
+---
+
+## Configuração do AI Gateway
+
+O arquivo `src/config/gateway.ts` configura o fallback automático entre providers:
+
+```typescript
+import { createGateway } from '@ai-sdk/gateway';
+
+export const DEFAULT_MODEL = 'openai/gpt-4o';
+
+export const FALLBACK_MODELS = [
+  'anthropic/claude-sonnet-4',
+  'google/gemini-2.0-flash',
+];
+
+export const PROVIDER_ORDER = ['openai', 'anthropic', 'google'];
+
+export const gateway = createGateway({
+  apiKey: process.env.AI_GATEWAY_API_KEY,
+});
+
+export const defaultProviderOptions = {
+  gateway: {
+    models: FALLBACK_MODELS,
+    order: PROVIDER_ORDER,
+  },
+};
+```
+
+---
+
+## Scripts Disponíveis
+
+| Script | Comando | Descrição |
+|--------|---------|-----------|
+| `dev` | `npm run dev` | Inicia servidor com hot reload |
+| `build` | `npm run build` | Compila TypeScript |
+| `start` | `npm start` | Produção (requer build) |
+| `test:tools` | `npm run test:tools` | Testa as 4 tools |
+| `test:agent` | `npm run test:agent` | Testa o agente |
+
+---
+
+## Próximos Passos
+
+<Card title="Uso da API" icon="code" href="/ai-creators/usage">
+  Aprenda sobre o fluxo SSE e como consumir a API
+</Card>

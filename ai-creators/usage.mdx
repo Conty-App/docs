@@ -1,0 +1,529 @@
+---
+title: 'Uso da API'
+description: 'Como consumir a API de chat com SSE streaming'
+---
+
+## Visão Geral
+
+A API utiliza **Server-Sent Events (SSE)** para streaming de respostas em tempo real. Isso permite que o cliente receba atualizações incrementais enquanto o agente processa a requisição.
+
+---
+
+## Endpoint Principal
+
+```
+POST /api/chat
+```
+
+### Request Body
+
+```typescript
+interface ChatRequest {
+  message: string;      // Mensagem do usuário (obrigatório)
+  session_id: string;   // ID da sessão para histórico (obrigatório)
+  brand_id?: string;    // ID da marca (opcional, futuro)
+  attachments?: {       // Anexos (opcional, futuro)
+    type: 'image' | 'audio';
+    url: string;
+  }[];
+}
+```
+
+### Exemplo de Request
+
+```bash
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Busque criadores de tecnologia",
+    "session_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+---
+
+## Fluxo de Eventos SSE
+
+```
+Cliente                           Servidor
+   │                                  │
+   │  POST /api/chat                  │
+   │ ─────────────────────────────────>│
+   │                                  │
+   │  SSE: reasoning                  │
+   │ <─────────────────────────────────│
+   │                                  │
+   │  SSE: tool_call                  │
+   │ <─────────────────────────────────│
+   │                                  │
+   │  SSE: tool_result                │
+   │ <─────────────────────────────────│
+   │                                  │
+   │  SSE: creators                   │
+   │ <─────────────────────────────────│
+   │                                  │
+   │  SSE: text (múltiplos)           │
+   │ <─────────────────────────────────│
+   │                                  │
+   │  SSE: done                       │
+   │ <─────────────────────────────────│
+```
+
+---
+
+## Tipos de Eventos
+
+### 1. `reasoning`
+
+Pensamento interno do modelo (quando disponível).
+
+```json
+{
+  "type": "reasoning",
+  "content": "Analisando a solicitação para encontrar criadores de moda..."
+}
+```
+
+### 2. `tool_call`
+
+Indica que uma tool está sendo chamada.
+
+```json
+{
+  "type": "tool_call",
+  "tool": "searchCreators",
+  "args": {
+    "query": "criadores de moda feminina",
+    "limit": 10
+  }
+}
+```
+
+**Tools disponíveis:**
+- `searchCreators` - Busca semântica pura
+- `filterCreators` - Busca híbrida com filtros
+- `inviteCreator` - Convite para campanha
+- `messageCreator` - Mensagem direta
+
+### 3. `tool_result`
+
+Resultado da execução de uma tool.
+
+```json
+{
+  "type": "tool_result",
+  "tool": "searchCreators",
+  "result": {
+    "success": true,
+    "query": "criadores de moda feminina",
+    "count": 10,
+    "creators": [...]
+  }
+}
+```
+
+### 4. `creators`
+
+Lista de criadores encontrados (para renderização em UI).
+
+```json
+{
+  "type": "creators",
+  "data": [
+    {
+      "creatorId": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Maria Silva",
+      "biography": "Criadora de conteúdo sobre moda...",
+      "profileImageUrl": "https://example.com/image.jpg",
+      "gender": "female",
+      "similarity": 0.92
+    }
+  ]
+}
+```
+
+<Info>
+O campo `similarity` indica a similaridade semântica entre a query e o perfil do criador (0 a 1).
+</Info>
+
+### 5. `text`
+
+Texto da resposta do agente (streaming incremental).
+
+```json
+{
+  "type": "text",
+  "content": "Encontrei 10 criadores..."
+}
+```
+
+<Info>
+Este evento pode aparecer múltiplas vezes. Concatene os valores de `content` para formar a resposta completa.
+</Info>
+
+### 6. `done`
+
+Indica que o stream foi finalizado.
+
+```json
+{
+  "type": "done"
+}
+```
+
+### 7. `error`
+
+Indica que ocorreu um erro durante o processamento.
+
+```json
+{
+  "type": "error",
+  "content": "Erro ao buscar criadores: conexão com banco falhou"
+}
+```
+
+<Warning>
+Após um evento `error`, sempre será enviado um evento `done` para finalizar o stream.
+</Warning>
+
+---
+
+## Exemplos de Código
+
+### cURL
+
+```bash
+curl -X POST http://localhost:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Busque criadores de tecnologia",
+    "session_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+### JavaScript/TypeScript
+
+```typescript
+interface SSEEvent {
+  type: 'reasoning' | 'tool_call' | 'tool_result' | 'text' | 'creators' | 'done' | 'error';
+  content?: string;
+  tool?: string;
+  args?: Record<string, unknown>;
+  result?: unknown;
+  data?: Array<{
+    creatorId: string;
+    name: string;
+    biography: string | null;
+    profileImageUrl: string | null;
+    gender: string | null;
+    similarity: number;
+  }>;
+}
+
+async function chatWithAgent(message: string, sessionId: string) {
+  const response = await fetch('http://localhost:3000/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, session_id: sessionId }),
+  });
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+
+  while (true) {
+    const { done, value } = await reader!.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const event: SSEEvent = JSON.parse(line.slice(6));
+
+        switch (event.type) {
+          case 'reasoning':
+            console.log('🤔 Reasoning:', event.content);
+            break;
+          case 'tool_call':
+            console.log('🔧 Tool:', event.tool, event.args);
+            break;
+          case 'tool_result':
+            console.log('✅ Result:', event.tool);
+            break;
+          case 'creators':
+            console.log('👥 Creators:', event.data?.length);
+            // Renderizar cards de criadores na UI
+            break;
+          case 'text':
+            fullText += event.content;
+            process.stdout.write(event.content!);
+            break;
+          case 'error':
+            console.error('❌ Error:', event.content);
+            break;
+          case 'done':
+            console.log('\n✓ Done');
+            return { text: fullText };
+        }
+      }
+    }
+  }
+}
+
+// Uso
+const sessionId = crypto.randomUUID();
+await chatWithAgent('Busque criadores de moda', sessionId);
+```
+
+### Python
+
+```python
+import requests
+import json
+import uuid
+
+def chat_with_agent(message: str, session_id: str):
+    url = 'http://localhost:3000/api/chat'
+    data = {'message': message, 'session_id': session_id}
+
+    response = requests.post(url, json=data, stream=True)
+    response.raise_for_status()
+
+    buffer = ''
+    full_text = ''
+    
+    for chunk in response.iter_content(chunk_size=None):
+        if chunk:
+            buffer += chunk.decode('utf-8')
+            lines = buffer.split('\n\n')
+            buffer = lines.pop() if lines else ''
+
+            for line in lines:
+                if line.startswith('data: '):
+                    event = json.loads(line[6:])
+                    
+                    if event['type'] == 'reasoning':
+                        print(f"🤔 Reasoning: {event['content']}")
+                    elif event['type'] == 'tool_call':
+                        print(f"🔧 Tool: {event['tool']} {event.get('args', {})}")
+                    elif event['type'] == 'tool_result':
+                        print(f"✅ Result: {event['tool']}")
+                    elif event['type'] == 'creators':
+                        print(f"👥 Creators: {len(event['data'])} encontrados")
+                    elif event['type'] == 'text':
+                        full_text += event['content']
+                        print(event['content'], end='', flush=True)
+                    elif event['type'] == 'error':
+                        print(f"❌ Error: {event['content']}")
+                    elif event['type'] == 'done':
+                        print('\n✓ Done')
+                        return full_text
+
+# Uso
+session_id = str(uuid.uuid4())
+chat_with_agent('Busque criadores de tecnologia', session_id)
+```
+
+### React Hook
+
+```typescript
+import { useState, useCallback } from 'react';
+
+interface Creator {
+  creatorId: string;
+  name: string;
+  biography: string | null;
+  profileImageUrl: string | null;
+  gender: string | null;
+  similarity: number;
+}
+
+export function useSSEChat() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [text, setText] = useState('');
+  const [creators, setCreators] = useState<Creator[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const sendMessage = useCallback(async (message: string, sessionId: string) => {
+    setIsLoading(true);
+    setText('');
+    setCreators([]);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, session_id: sessionId }),
+      });
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const event = JSON.parse(line.slice(6));
+
+            switch (event.type) {
+              case 'text':
+                setText(prev => prev + event.content);
+                break;
+              case 'creators':
+                setCreators(event.data);
+                break;
+              case 'error':
+                setError(event.content);
+                break;
+            }
+          }
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return { sendMessage, isLoading, text, creators, error };
+}
+```
+
+---
+
+## Gerenciamento de Sessão
+
+### Session ID
+
+O `session_id` mantém o histórico de conversa. Use o mesmo ID para continuar uma conversa.
+
+```javascript
+// Nova conversa
+const sessionId = crypto.randomUUID();
+
+// Primeira mensagem
+await chatWithAgent('Busque criadores de moda', sessionId);
+
+// Continuar conversa (mesmo sessionId)
+await chatWithAgent('Filtre apenas mulheres', sessionId);
+
+// O agente lembra do contexto anterior
+await chatWithAgent('Convide a primeira criadora', sessionId);
+```
+
+<Info>
+As últimas 50 mensagens de cada sessão são mantidas no histórico (configurável via `MAX_HISTORY_MESSAGES`).
+</Info>
+
+### Memória Persistente
+
+O histórico é salvo automaticamente no Supabase na tabela `chat_messages`:
+
+```sql
+SELECT * FROM chat_messages 
+WHERE session_id = '550e8400-e29b-41d4-a716-446655440000'
+ORDER BY created_at ASC;
+```
+
+---
+
+## Uso Programático (Backend)
+
+Além da API HTTP, você pode usar o agente diretamente no código:
+
+### Non-Streaming
+
+```typescript
+import { runAgent, createConversation } from './agent';
+
+// Criar sessão
+const sessionId = createConversation();
+
+// Executar agente
+const result = await runAgent({
+  sessionId,
+  userMessage: 'Preciso de criadores de fitness femininas',
+});
+
+console.log(result.text);        // Resposta do agente
+console.log(result.toolCalls);   // Tools executadas
+console.log(result.steps);       // Número de steps
+console.log(result.usage);       // Tokens usados
+```
+
+### Streaming
+
+```typescript
+import { runAgentStream } from './agent';
+
+const stream = await runAgentStream({
+  sessionId,
+  userMessage: 'Busque criadores de tecnologia',
+});
+
+// Stream de texto
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+
+// Resultado final
+const finalText = await stream.text;
+const usage = await stream.usage;
+```
+
+---
+
+## Limites e Configurações
+
+| Parâmetro | Valor | Descrição |
+|-----------|-------|-----------|
+| Max steps por request | 6 | Máximo de iterações tool → resposta |
+| Max criadores por busca | 20 | Limite de resultados |
+| Default criadores | 10 | Padrão se não especificado |
+| Histórico por sessão | 50 mensagens | Limite de memória |
+| Timeout recomendado | 60s | Para requisições longas |
+| Dimensão embeddings | 1536 | text-embedding-3-small |
+
+---
+
+## Códigos de Erro
+
+| Código | HTTP Status | Descrição |
+|--------|-------------|-----------|
+| `MISSING_FIELDS` | 400 | Campos obrigatórios ausentes |
+| `CREATOR_NOT_FOUND` | 404 | Criador não existe |
+| `DATABASE_ERROR` | 500 | Erro no Supabase |
+| `EMBEDDING_ERROR` | 500 | Erro ao gerar embedding |
+| `INVITE_ERROR` | 500 | Erro ao criar convite |
+| `MESSAGE_ERROR` | 500 | Erro ao enviar mensagem |
+
+---
+
+## CORS
+
+A API aceita requisições de qualquer origem com os headers:
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+```
+
+---
+
+## Próximos Passos
+
+<Card title="API Reference" icon="book" href="/api-reference/ai-creators/chat">
+  Documentação completa do endpoint POST /api/chat
+</Card>

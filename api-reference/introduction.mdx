@@ -1,61 +1,133 @@
 ---
-title: 'Introdução'
-description: 'Documentação da API Social Go v2.0.0'
+title: 'Referência da API'
+description: 'Documentação técnica de todos os endpoints da plataforma Conty'
 ---
 
 ## Bem-vindo
 
-A **Social Go API** é um microsserviço interno projetado para ser consumido exclusivamente pelo backend principal da Conty. Ela fornece funcionalidades para sincronização e análise de métricas de redes sociais (Instagram e TikTok).
+Esta seção contém a **documentação técnica completa** de todos os endpoints das APIs da Conty. Aqui você encontra referências para os 3 produtos principais:
+
+<CardGroup cols={3}>
+  <Card title="AI Creators" icon="robot" href="/api-reference/ai-creators/chat">
+    Agente de IA para busca e recomendação de criadores UGC via chat com SSE streaming
+  </Card>
+  <Card title="Conty Match" icon="handshake" href="/api-reference/match/find-matches">
+    Sistema de matching entre marcas e criadores com base em embeddings semânticos
+  </Card>
+  <Card title="Social API" icon="share-nodes" href="/api-reference/onboarding/connect">
+    Sincronização e análise de métricas de redes sociais (Instagram e TikTok)
+  </Card>
+</CardGroup>
+
+---
+
+## Visão Geral dos Produtos
+
+### AI Creators
+
+API de chat conversacional que usa **GPT-4o** com fallback automático para buscar criadores de conteúdo.
+
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/api/chat` | POST | Chat com streaming SSE |
+| `/health` | GET | Health check |
+
+**Base URL:** `https://ai-creators.appconty.com`
+
+---
+
+### Conty Match
+
+Sistema de matching que encontra criadores ideais para campanhas usando busca semântica.
+
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/match/find` | POST | Encontra criadores compatíveis |
+| `/match/process-all` | POST | Processa todos os criadores |
+| `/match/missions` | POST | Cria missões para criadores |
+| `/match/notify` | POST | Envia notificações |
+| `/creators` | GET | Lista criadores |
+| `/creators/:id` | GET | Detalhes do criador |
+
+**Base URL:** `https://match.appconty.com`
+
+---
+
+### Social API
+
+Microsserviço para sincronização e análise de métricas de redes sociais.
+
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/connect` | POST | Conecta conta social |
+| `/accounts` | GET | Lista contas conectadas |
+| `/accounts/:id/sync` | POST | Sincroniza dados |
+| `/accounts/:id/dashboard` | GET | Dashboard de métricas |
+| `/analytics` | POST | Análise de posts |
+| `/tiktok/download` | POST | Download de vídeos |
+| `/video/enriched-metrics` | POST | Métricas enriquecidas com IA |
+| `/insights/*` | POST | Insights e predições |
+| `/jobs/:id` | GET | Status de jobs assíncronos |
+
+**Base URL:** `https://social.appconty.com`
 
 <Card
-  title="Social Go OpenAPI Spec"
+  title="OpenAPI Spec (Social API)"
   icon="code"
   href="/api-reference/openapi.json"
 >
   Baixar a especificação OpenAPI v2.0.0
 </Card>
 
-## Autenticação e Segurança
+---
 
-Todas as requisições devem ser autenticadas. Existem dois headers principais necessários para interagir com a API:
+## Autenticação
 
-1. **Autenticação Interna**: Todas as chamadas devem incluir o header `X-Internal-Secret` para validar a origem da requisição.
-2. **Contexto de Tenant**: Chamadas devem incluir `X-Enterprise-Id` para identificar o cliente e aplicar rate limiting.
+Cada produto tem seu próprio modelo de autenticação:
+
+| Produto | Autenticação |
+|---------|--------------|
+| **AI Creators** | `session_id` no body (sem auth obrigatório) |
+| **Conty Match** | API Key via header ou bearer token |
+| **Social API** | `X-Internal-Secret` + `X-Enterprise-Id` |
+
+### Social API (Headers obrigatórios)
 
 ```bash
 X-Internal-Secret: SEU_SECRET_TOKEN
 X-Enterprise-Id: 123e4567-e89b-12d3-a456-426614174000
 ```
 
+---
+
+## Padrões Comuns
+
+Todas as APIs seguem os mesmos padrões:
+
+| Padrão | Formato |
+|--------|---------|
+| **Datas** | ISO 8601 (`YYYY-MM-DDTHH:mm:ssZ`) |
+| **IDs** | UUID v4 |
+| **Erros** | JSON `{"error":"..."}` ou `{"code":"ERR_*","message":"..."}` |
+
+---
+
 ## Rate Limiting
 
-A API impõe limites de requisição para garantir estabilidade. Quando excedido, retorna status `429` com header `Retry-After`.
+| Produto | Limite Geral | Limites Específicos |
+|---------|--------------|---------------------|
+| AI Creators | 60 req/min | - |
+| Conty Match | 100 req/min | - |
+| Social API | 100 req/s | `/tiktok/download`: 5/min, `/enriched-metrics`: 10/min |
 
-| Rota | Limite |
-| :--- | :--- |
-| Geral | 100 req/s |
-| `/tiktok/download` | 5 req/min |
-| `/video/enriched-metrics` | 10 req/min |
+Quando excedido, retorna status `429` com header `Retry-After`.
 
-## Fluxo Assíncrono (Jobs)
+---
 
-Para operações pesadas (como download de mídia ou análise de IA), a API utiliza um padrão de Jobs assíncronos para evitar timeouts.
+## Jobs Assíncronos (Social API)
 
-1. O cliente solicita a operação (ex: `POST /tiktok/download`).
-2. A API retorna `202 Accepted` imediatamente com um `job_id`.
-3. O cliente faz polling em `GET /jobs/{id}` até que o status seja `COMPLETED` ou `FAILED`.
+Para operações pesadas, a Social API usa um padrão de jobs assíncronos:
 
-## Fluxo de Uso
-
-O ciclo de vida típico de uso da API envolve:
-
-1. **Conexão**: Conecte uma conta de rede social usando `POST /connect`.
-2. **Sincronização**: Acompanhe ou force a atualização de dados com `POST /accounts/{id}/sync`.
-3. **Dashboard**: Consulte dados consolidados e métricas no `GET /accounts/{id}/dashboard`.
-4. **Mídia**: Baixe e analise vídeos específicos via fluxo de Jobs.
-
-## Padrões
-
-- **Datas**: Formato ISO 8601 (`YYYY-MM-DDTHH:mm:ssZ`).
-- **IDs**: UUID v4.
-- **Erros**: Retornados em JSON no formato `{"code":"ERR_*","message":"..."}`.
+1. Cliente solicita operação (ex: `POST /tiktok/download`)
+2. API retorna `202 Accepted` com `job_id`
+3. Cliente faz polling em `GET /jobs/{id}` até `COMPLETED` ou `FAILED`

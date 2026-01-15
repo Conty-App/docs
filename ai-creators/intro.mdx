@@ -1,0 +1,183 @@
+---
+title: 'Introdução'
+description: 'Agente de IA para busca e recomendação de criadores UGC'
+---
+
+## O que é o AI Creators?
+
+Sistema de **agente conversacional** que conecta marcas com criadores de conteúdo UGC usando busca semântica e machine learning.
+
+O fluxo é simples:
+1. Marca descreve o tipo de criador que procura em linguagem natural
+2. Agente gera embedding da query usando OpenAI
+3. Busca híbrida: similaridade semântica + filtros SQL no Supabase
+4. Retorna lista de criadores ranqueados por relevância
+5. Pode convidar ou enviar mensagens para criadores selecionados
+
+---
+
+## Stack
+
+| Componente | Tecnologia |
+|------------|------------|
+| Runtime | Node.js + TypeScript |
+| AI SDK | Vercel AI SDK 6.x |
+| AI Gateway | `@ai-sdk/gateway` com fallback automático |
+| LLM | OpenAI GPT-4o (primário) → Claude Sonnet → Gemini Flash |
+| Embeddings | OpenAI text-embedding-3-small (1536 dims) |
+| Database | Supabase (Postgres + pgvector) |
+| Streaming | Server-Sent Events (SSE) |
+
+---
+
+## URLs
+
+| Ambiente | URL |
+|----------|-----|
+| **Desenvolvimento** | `http://localhost:3000` |
+| **Produção** | `https://ai-creators.appconty.com` |
+
+---
+
+## Autenticação
+
+Atualmente a API não requer autenticação. As requisições são identificadas pelo `session_id` fornecido pelo cliente.
+
+<Warning>
+Em versões futuras, será adicionado suporte a `brand_id` para contexto enterprise.
+</Warning>
+
+---
+
+## Arquitetura
+
+```
+┌─────────────┐
+│   Client    │
+└──────┬──────┘
+       │ POST /api/chat
+       ▼
+┌─────────────────────────────────┐
+│  API Server (Node.js HTTP)      │
+│  Chat Handler → SSE Stream      │
+└────────┬───────────────┬────────┘
+         │               │
+         ▼               ▼
+    ┌──────────┐   ┌─────────────────┐
+    │ Supabase │   │ Vercel AI       │
+    │ Postgres │   │ Gateway         │
+    │ pgvector │   │ (OpenAI/Claude/ │
+    └──────────┘   │  Gemini)        │
+                   └─────────────────┘
+```
+
+### Fallback de Providers
+
+O sistema usa o Vercel AI Gateway com fallback automático entre providers:
+
+```
+OpenAI (gpt-4o) → Anthropic (claude-sonnet-4) → Google (gemini-2.0-flash)
+```
+
+---
+
+## Tools do Agente
+
+O agente tem acesso a 4 ferramentas implementadas com o AI SDK:
+
+| Tool | Descrição | RPC Supabase |
+|------|-----------|--------------|
+| `searchCreators` | Busca semântica pura por similaridade de embeddings | `search_creators_hybrid` |
+| `filterCreators` | Busca híbrida com filtros (gênero, plataforma) | `search_creators_hybrid` |
+| `inviteCreator` | Convida criador para uma campanha | `get_creator_details` |
+| `messageCreator` | Envia mensagem para um criador | `get_creator_details` |
+
+### searchCreators
+
+Busca criadores por similaridade semântica. Use quando a marca descrever o tipo de criador em linguagem natural **sem** especificar filtros.
+
+**Parâmetros:**
+- `query` (string): Descrição do tipo de criador desejado
+- `limit` (number, opcional): Quantidade de resultados (máximo 20, padrão 10)
+
+### filterCreators
+
+Busca híbrida combinando semântica com filtros SQL. Use quando o usuário especificar filtros como gênero ou plataforma.
+
+**Parâmetros:**
+- `query` (string, opcional): Descrição do tipo de criador
+- `gender` (enum, opcional): `male`, `female`, `other`
+- `platform` (enum, opcional): `instagram`, `tiktok`, `youtube`
+- `limit` (number, opcional): Quantidade de resultados
+
+### inviteCreator
+
+Convida um criador específico para participar de uma campanha.
+
+**Parâmetros:**
+- `creatorId` (UUID): ID do criador
+- `campaignId` (UUID): ID da campanha
+- `offerValue` (number): Valor da oferta em R$
+- `message` (string, opcional): Mensagem personalizada
+
+### messageCreator
+
+Envia mensagem direta para um criador.
+
+**Parâmetros:**
+- `creatorId` (UUID): ID do criador
+- `message` (string): Conteúdo da mensagem (1-2000 caracteres)
+- `context` (enum, opcional): `campaign` ou `general`
+
+---
+
+## Estrutura do Projeto
+
+```
+ai-creators/
+├── src/
+│   ├── api/
+│   │   ├── chat.ts         # Handler POST /api/chat (SSE)
+│   │   └── index.ts        # Exports
+│   ├── config/
+│   │   └── gateway.ts      # AI Gateway config + fallback
+│   ├── lib/
+│   │   ├── ai.ts           # Funções AI com fallback
+│   │   ├── db.ts           # Cliente Supabase
+│   │   └── logger.ts       # Logger JSON estruturado
+│   ├── types/
+│   │   ├── creator.ts      # Creator, CreatorFilters
+│   │   ├── brand.ts        # Brand, Campaign
+│   │   ├── agent.ts        # ChatRequest, SSEEvent
+│   │   └── index.ts        # Re-exports
+│   ├── errors/
+│   │   └── index.ts        # AppError, DatabaseError, etc
+│   ├── tools/
+│   │   ├── searchCreators.ts   # Busca semântica
+│   │   ├── filterCreators.ts   # Busca híbrida
+│   │   ├── inviteCreator.ts    # Convite campanha
+│   │   ├── messageCreator.ts   # Mensagem direta
+│   │   └── index.ts            # agentTools
+│   ├── agent/
+│   │   ├── prompt.ts       # System prompt + config
+│   │   ├── memory.ts       # Histórico de conversa
+│   │   └── index.ts        # runAgent + runAgentStream
+│   └── server.ts           # Servidor HTTP
+├── scripts/
+│   ├── test-tools.ts       # Testes das tools
+│   └── test-agent.ts       # Testes do agente
+└── package.json
+```
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Configuração" icon="gear" href="/ai-creators/setup">
+    Configure as variáveis de ambiente e rode localmente
+  </Card>
+  <Card title="Uso da API" icon="code" href="/ai-creators/usage">
+    Aprenda a consumir a API com SSE streaming
+  </Card>
+</CardGroup>
